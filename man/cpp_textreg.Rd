@@ -3,15 +3,10 @@
 \alias{cpp_textreg}
 \title{Driver function for the C++ function.}
 \usage{
-cpp_textreg(corpus, labeling, banned = NULL, params)
+cpp_textreg(corpus, params)
 }
 \arguments{
 \item{corpus}{A list of strings or a corpus from the \code{tm} package.}
-
-\item{labeling}{A vector of +1/-1 or TRUE/FALSE indicating which documents are considered relevant and
-which are baseline.  The +1/-1 can contain 0 whcih means drop the document.}
-
-\item{banned}{List of words that should be dropped from consideration.}
 
 \item{params}{List of parameters to pass to the call.}
 }

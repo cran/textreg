@@ -5,7 +5,7 @@ library( testthat )
 library( textreg )
 
 
-context( "textreg call" )
+context( "test cross validation" )
 
 test_that("components of cross validation at least run", {
 
@@ -14,8 +14,10 @@ test_that("components of cross validation at least run", {
 	mth.lab[ 90:100 ] = 1
 
 	smp = sample( length(bathtub), length(bathtub)*0.5 )
-	rs = textreg( bathtub[smp], mth.lab[smp], c("methylene","chloride"), C = 3, gap=1, 
-				min.support = 5, verbosity=0, convergence.threshold=0.00001, maxIter=100 )
+	rs = textreg( bathtub[smp], mth.lab[smp], c("methylene","chloride"), 
+				C = 3, gap=1, 
+				min.support = 5, verbosity=0, convergence.threshold=0.00001, 
+				maxIter=100 )
 	rs
 	train.pred = predict( rs )
 	test.pred = predict( rs, bathtub[-smp] )

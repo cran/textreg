@@ -33,10 +33,11 @@ find.CV.C <-function( corpus, labeling, banned, K, length.out, max_C=NULL, verbo
 	  # return(list);
 	# }
 
-
+	
+  
 	if (is.null(max_C)) {
-      Cs<-find.threshold.C(corpus, labeling, banned, R=0, ... )
-      max_C<-Cs[1]
+		Cs<-find.threshold.C(corpus, labeling, banned, R=0, ... )
+     	max_C<-Cs[1]
     }
     C=0
     
@@ -73,8 +74,8 @@ find.CV.C <-function( corpus, labeling, banned, K, length.out, max_C=NULL, verbo
         outofsample_lbl<-labeling[cv.chunks[[j]]]
 
         # train
-        rs <- textreg(sample_corpus, sample_lbl, C=C, ... )
-		in.loss[j] = calc.loss(rs)[[2]]
+        rs <- textreg(sample_corpus, sample_lbl, banned, C=C, ... )
+	    in.loss[j] = calc.loss(rs)[[2]]
 		 
         # evaluate
         loss[j] <- calc.loss(rs,outofsample_corpus,outofsample_lbl)[[2]]

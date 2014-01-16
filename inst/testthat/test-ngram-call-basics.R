@@ -13,6 +13,7 @@ test_that("program runs and gives right number of documents back", {
 		
 	res = textreg( testI$corpus, testI$labelI, c("frog","goat","bat"), C=100, verbosity=0 )	
 	res = res$model
+	res
 	expect_equal( res$ngram[[1]], "*intercept*" )
 	expect_equal( res$support, 14 )
 	expect_equal( res$totalDocs, 14 )

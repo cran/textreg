@@ -14,7 +14,7 @@ test_that("Lq calculating things right", {
 	res			
 	expect_equal( res$model$Z, c(1,2,2) )
 	
-	# get feature C
+	# get feature C only
 	res = textreg( c( "A C", "A C", "B C", "B C", "", "", "", "","","" ), c(1,1,1,1,-1,-1,-1,-1,-1,-1), C=1, maxIter=20,
 			Lq=1.5, verbosity=0, step.verbosity=0 )
 	res			

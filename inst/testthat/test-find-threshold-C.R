@@ -44,8 +44,6 @@ test_that("no C needed gives 0", {
 	res = find.threshold.C( corpus, rep( c(-1,1), c(7, 7) ), c(), R=50, verbosity=0 )
 	expect_equal( res, rep(0,51), tolerance=0.0001 )
 
-
-	
 } )
 
 

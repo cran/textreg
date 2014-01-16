@@ -27,10 +27,12 @@ convert.tm.to.character = function( corpus ) {
 
 
 
+
+
 #' Driver function for the C++ function.
 #' 
-#' Given a labeling and a corpus, find phrases that predict this labeling.
-#' Generally you should use the textreg method, not this method.
+#' Given a labeling and a corpus, create a corpus object for use in textreg.
+#' Generally you should use the buildCorpus method, not this method.
 #'
 #' Warning: do not call directly.  Use textreg instead
 #'
@@ -40,48 +42,116 @@ convert.tm.to.character = function( corpus ) {
 #' @param banned  List of words that should be dropped from consideration.
 #' @param params List of parameters to pass to the call.
 #' @seealso textreg, find_C_threshold
-cpp_textreg <- function(corpus, labeling, banned=NULL, params ) {
+cpp_build.corpus <- function(corpus, labeling, banned=c(), params ) {
+  
+  params["token.type"] = params["token.type"] == "word"
+  params$corpus = NULL
+  params$labeling = NULL
+  params$banned = NULL
+  
+  if ( is.logical( labeling ) ) {
+    labeling = 2 * labeling - 1
+  }
+  
+  if ( sum( labeling == -1 ) == 0 && sum( labeling == 0 ) > 0 ) {
+    warning( "Changing labeling to +1/-1 from 1/0.  Try formatting as -1/0/1 vector or passing logical vector instead." )
+    labeling = 2 * labeling - 1
+  }
+  
+  if ( is.null(corpus) ) {
+    stop("Corpus argument is empty.")
+  }
+  
+  if ( is.null(labeling) ) {
+    stop("Labeling argument is empty.")
+  }
+  
+  if ( is.null(banned) ) {
+    banned = vector(mode="character")
+  }
+  
+  if ( "Corpus" %in% class(corpus) ) {
+    corpus = convert.tm.to.character( corpus )
+  }
+  
+  stopifnot( is.character( corpus ) )
+  
+  stopifnot( is.numeric( labeling ) )
+  
+  ## Make the call...
+  val <- .Call("textreg_build_corpus", corpus, labeling, banned, params, PACKAGE="textreg")
+  class( val ) = "textreg.corpus"
+  val
+}
 
 
+
+#' Build a corpus that can be used in the textreg call. 
+#'
+#' Pre-building a corpus allows for calling multiple textregs without doing a lot 
+#' of initial data processing (e.g., if you want to explore different ban lists or
+#' regularization parameters)
+#'
+#' See the bathtub vignette for more complete discussion of this method and the options 
+#' you might pass to it.
+#'
+#' @note Unfortunately, the process of seperating out the textreg call and the build.corpus
+#'     call is not quite as clean as one would hope.  The build.corpus call moves the text into
+#'     the C++ memory, but the way the search tree is built for the regression it is hard to salvage
+#'     it across runs and so this is of limited use.  In particular, the labeling and banned words
+#'     cannot be easily changed.   Future versions of the package should remedy this.
+#' 
+#' @export
+#' @param corpus A list of strings or a corpus from the \code{tm} package.
+#' @param labeling A vector of +1/-1 or TRUE/FALSE indicating which documents are considered relevant 
+#'     and which are baseline.  The +1/-1 can contain 0 whcih means drop the document.
+#' @param banned  List of words that should be dropped from consideration.
+#' @param verbosity Level of output.  0 is no printed output.
+#' @param token.type  "word" or "character" as tokens.
+#' @return A \code{\link{textreg.result}} object.
+#' @examples
+#' data( testCorpora )
+#' textreg( testCorpora$testI$corpus, testCorpora$testI$labelI, c(), C=1, verbosity=1 )
+# [[Rcpp::export]]
+build.corpus <- function(corpus, labeling, banned=NULL, 
+                         verbosity = 1,
+                         token.type="word" ) {
+  
+  params = as.list(environment())
+  params$corpus = NULL
+  params$labeling = NULL
+  params$banned = NULL
+    
+  val <- cpp_build.corpus( corpus, labeling, banned, params )
+  val
+}
+
+
+#' Driver function for the C++ function.
+#' 
+#' Given a labeling and a corpus, find phrases that predict this labeling.
+#' Generally you should use the textreg method, not this method.
+#'
+#' Warning: do not call directly.  Use textreg instead
+#'
+#' @param corpus A list of strings or a corpus from the \code{tm} package.
+#' @param params List of parameters to pass to the call.
+#' @seealso textreg, find_C_threshold
+cpp_textreg <- function(corpus, params)
+{
 	params["token.type"] = params["token.type"] == "word"
-	params["traversal.strategy"] = params["traversal.strategy"] == "BFS"
+	#params["traversal.strategy"] = params["traversal.strategy"] == "BFS"
 	params$corpus = NULL
 	params$labeling = NULL
 	params$banned = NULL
 	params$traversal.strategy = "BFS"
 	
-	if ( is.logical( labeling ) ) {
-		labeling = 2 * labeling - 1
-	}
-	
-	if ( sum( labeling == -1 ) == 0 && sum( labeling == 0 ) > 0 ) {
-		warning( "Changing labeling to +1/-1 from 1/0.  Try passing logical vector instead." )
-		labeling = 2 * labeling - 1
-	}
-	
-	if ( length(banned) == 0 ) {
-		banned = NULL
-	}
-	# if ( is.null( banned ) ) {
-		# banned = c() #c("xxxxzzzxxx")
-	# }
-	
-	if ( "Corpus" %in% class(corpus) ) {
-		corpus = convert.tm.to.character( corpus )
-	}
+	stopifnot( class(corpus) == "textreg.corpus" )
 
-	stopifnot( is.character( corpus ) )
-		
-	stopifnot( is.numeric( labeling ) )
-			
     ## Make the call...
-    val <- .Call("textreg", corpus, labeling, banned, params, PACKAGE="textreg")
-    
+    val <- .Call("textreg_textreg", corpus, params, PACKAGE="textreg")
     val
 }
-
-
-
 
 
 #' Sparse regression of labeling vector onto all phrases in a corpus.
@@ -138,25 +208,36 @@ textreg <- function(corpus, labeling, banned=NULL,
 				token.type="word",
 				convergence.threshold=0.0001 ) {
 
-
 	params = as.list(environment())
 	params["findC"] = FALSE
 	params["findCIter"] = 0
 	
-	val <- cpp_textreg( corpus, labeling, banned, params )
+	if ( is.textreg.corpus( corpus ) ) {
+		if ( !missing( labeling ) ) {
+			warning( "No implementation of new labeling with pre-built corpus at this time" )
+		}	
+		
+		if ( !is.null( banned ) ) {
+			warning( "No implementation of changing ban-list with pre-built corpus at this time" )
+		#			warning( "Updating ban list in textreg on built corpus: untested" )
+		#    corpus <- .Call("textreg_update_banned", corpus, banned )
+  		#		class( corpus ) = "textreg.corpus"
+			    
+		}
+		
+	} else {
+		corpus = cpp_build.corpus( corpus, labeling, banned, params )
+	}
+	
+	
+	val <- cpp_textreg( corpus, params )
     
     val$model$ngram = as.character( val$model$ngram )
     
     rownames( val$model ) = val$model$ngram
-    
-    # if ( length(val$banlist) == 1 && val$banlist[[1]] == "xxxxzzzxxx" ) {
-    	# val$banlist = c()
-    # }
-    
     class( val ) = "textreg.result"
     val
 }
-
 
 
 
@@ -182,7 +263,7 @@ textreg <- function(corpus, labeling, banned=NULL,
 #' @examples
 #' data( testCorpora )
 #' find.threshold.C( testCorpora$testI$corpus, testCorpora$testI$labelI, c(), R=5, verbosity=1 )
-find.threshold.C <- function(corpus, labeling, banned=NULL, 
+find.threshold.C <- function(corpus, labeling, banned=NULL,
 				R = 0,
 				objective.function = 2,
 				a = 1.0,
@@ -204,8 +285,18 @@ find.threshold.C <- function(corpus, labeling, banned=NULL,
 	params["findC"] = TRUE
 	params["findCIter"] = R
 	params["maxIter" ] = 0
+
+	if ( is.textreg.corpus( corpus ) ) {
+		if ( !missing( labeling ) ) {
+			warning( "New labeling not used with pre-built corpus at this time" )
+		}	
+	} else {
+		corpus = cpp_build.corpus( corpus, labeling, banned, params )
+	}
+  
+#	corpus <- cpp_build.corpus( corpus, labeling, banned, params )
 	
-	val <- cpp_textreg( corpus, labeling, banned, params )
+	val <- cpp_textreg( corpus, params )
 				    
     as.numeric( val )
 }
@@ -215,6 +306,27 @@ find.threshold.C <- function(corpus, labeling, banned=NULL,
 
 
 
+#' Pretty print textreg corpus object
+#'
+#' @export
+#' @param x A textreg.corpus object.
+#' @param ... No extra options passed.
+#' @family textreg.corpus
+print.textreg.corpus = function( x, ... ) {
+	cat( "textreg C++ corpus" )
+	
+}
+
+
+#' Is object a textreg.corpus object?
+#'
+#' @export
+#' @aliases textreg.corpus
+#' @param x the object to check.
+#' @family textreg.corpus
+is.textreg.corpus = function( x ) {
+	inherits(x, "textreg.corpus")
+}
 
 
 

@@ -15,9 +15,6 @@
  */
 
 #include <Rcpp.h>
-#if defined(assert)
-  #undef assert
-#endif
 
 #include <cfloat>
 #include <iostream>
@@ -40,6 +37,13 @@
 #include <errno.h>
 #include "sys/time.h"
 #include <list>
+
+// #if defined(__i386__) && _WINDOWS_
+#ifdef _WIN32
+ 	#define LONG_DOUBLE double
+#else
+ 	#define LONG_DOUBLE long double
+#endif
 
 #define SINGLE_FILE 1
 #define MULTI_FILE 2
@@ -66,20 +70,28 @@ using namespace std;
 using namespace Rcpp;
 
 
+#ifdef NDEBUG
+# define my_assert(EX)
+#else
+# define my_assert(EX) (void)((EX) || (__assert (#EX, __FILE__, __LINE__),0))
+#endif
 
-void assert( string name, bool what ) {
-	if (!what) {
-		::Rf_error( ("assert failure: " + name).c_str() );
-	}
+void __assert (const char *msg, const char *file, int line) {
+    char buffer [100];
+    snprintf( buffer, 100, "Assert Failure: %s at %s line #%d", msg, file, line );
+    ::Rf_error( buffer );
 }
 
 
-// Lp for this space for calculating Z
-static long double glob_Lp;
+//void my_assert( string name, bool what ) {
+//	if (!what) {
+//		::Rf_error( ("assert failure: " + name).c_str() );
+//	}
+//}
 
 
-// true means don't use counts, just use existance of feature in document.
-static bool glob_binary_features;
+
+
 
 
 
@@ -104,9 +116,9 @@ public:
 	unsigned int size;
 
 	// Gradient value for this ngram.
-	long double gradient;
-	long double upos;
-	long double uneg;
+	LONG_DOUBLE gradient;
+	LONG_DOUBLE upos;
+	LONG_DOUBLE uneg;
 
 	// Full Ngram name
 	std::string  ngram;
@@ -124,7 +136,7 @@ public:
 	std::vector <int> weight;
 
 	// normalization.  All weights are divided by this.
-	long double Z;
+	LONG_DOUBLE Z;
 
 	// penalize rule?  (generally don't for intercept, do for all others)
 	bool penalize;
@@ -158,7 +170,8 @@ public:
 
 
     std::vector <int>  &get_loc() {
-		assert( "hasn't shrunk in get_loc",  !shrunk );
+        my_assert( !shrunk );
+//		my_assert( "hasn't shrunk in get_loc",  !shrunk );
 
     	return loc;
     }
@@ -183,9 +196,9 @@ public:
 	// figure out which doc ids are the support of this space, and also how
 	// many times the ngram is found in each doc in the support.
 	// Also compute the normalizing constant Z for this feature.
-	void calc_support_weights( ) {
-        assert( "not shunk", !shrunk );
-        assert( "not converted", !converted );
+	void calc_support_weights( LONG_DOUBLE Lp, bool binary_features ) {
+        my_assert( !shrunk );
+        my_assert( !converted );
 		int rcntr = 0;
 		unsigned int my_total_support = 0;
 		doc_support.clear();
@@ -197,7 +210,7 @@ public:
 				weight.push_back( 0 );
 				rcntr++;
 			} else {
-				if ( glob_binary_features ) {
+				if ( binary_features ) {
 					if ( weight[rcntr-1] == 0 ) {
 						weight[rcntr-1] = 1;
 						my_total_support++;
@@ -209,15 +222,15 @@ public:
 			}
 		}
 		//Rcout << total_support << " " << my_total_support << endl;
-		if ( glob_binary_features ) {
-			assert( "support match (bin)", total_docs == my_total_support );
+		if ( binary_features ) {
+			my_assert( total_docs == my_total_support );
 
 		} else {
-			assert( "support match", total_support == my_total_support );
+			my_assert( total_support == my_total_support );
 		}
 		// now re-weight based on total support (this is L2 normalization)
 		Z = 0.0;
-		if ( glob_Lp >= LP_INFINITY ) {
+		if ( Lp >= LP_INFINITY ) {
 			for ( unsigned int i = 0; i < weight.size(); i++ ) {
 				if ( weight[i] > Z ) {
 					Z = weight[i];
@@ -225,9 +238,9 @@ public:
 			}
 		} else {
 			for ( unsigned int i = 0; i < weight.size(); i++ ) {
-				Z += pow( weight[i], glob_Lp );
+				Z += pow( weight[i], Lp );
 			}
-			Z = pow( (long double)Z, 1/glob_Lp );
+			Z = pow( (LONG_DOUBLE)Z, 1/Lp );
 		}
 
 		//Rcout << "Condensing vectors" << endl;
@@ -238,7 +251,7 @@ public:
 
 	// Shrink the list of total occurrences to contain just support doc_ids.
 	void shrink () {
-		assert( "hasn't shrunk",  !shrunk );
+		my_assert( !shrunk );
 		std::vector<int> tmp;
 		for (unsigned int i = 0; i < loc.size(); ++i) {
 			if (loc[i] < 0) tmp.push_back (loc[i]);
@@ -252,7 +265,7 @@ public:
 	// Return the support of current ngram.
 	// Simply count the negative loc as doc_ids.
 	unsigned int support () {
-		assert( "space_t was converted", converted );
+		my_assert( converted );
 		return total_support;
 		/*unsigned int result = 0;
          for (unsigned int i = 0; i < loc.size(); ++i) {
@@ -321,11 +334,11 @@ public:
 
 	Rcpp::List to_Rcpp_list() {
 		Rcpp::NumericVector suppV(doc_support.size());
-		for (unsigned int i = 0; i < doc_support.size(); i++ ) {
+		for ( unsigned int i = 0; i < doc_support.size(); i++ ) {
 			suppV[i] = doc_support[i];
 		}
 		Rcpp::NumericVector weightV(weight.size());
-				for (unsigned int i = 0; i < weight.size(); i++ ) {
+				for ( unsigned int i = 0; i < weight.size(); i++ ) {
 					weightV[i] = weight[i];
 		}
 
@@ -433,55 +446,59 @@ public:
 	// The collection is a vector of strings.
 	std::vector < string > corpus;
     
-	std::map <string, space_t> unigrams;
     
 	// True classes.
 	std::vector < int >                 y;
     
 	// Document weights (how much each document 'counts')   1 for everything is the norm.
-	//std::vector < long double >         doc_weight;
+	//std::vector < LONG_DOUBLE >         doc_weight;
 
 	//  number of positive and negative examples
 	unsigned int num_pos;
 	unsigned int num_neg;
     
 	// The fraction: 1 / 1 + exp^(yi*beta^t*xi) in the gradient computation.
-	std::vector < long double >         exp_fraction;
+	std::vector < LONG_DOUBLE >         exp_fraction;
 	// Per document, sum of best beta weights, beta^t * xi = sum_{j best beta coord} gradient_j
-	std::vector < long double >              sum_best_xbeta;
+	std::vector < LONG_DOUBLE >              sum_best_xbeta;
     
     
 	// Regularized loss function: loss + lambda * elnreg
 	// SLR loss function: log(1+exp(-yi*beta^t*xi))
 	// Squared Hinge SVM loss function: sum_{i|1-yi*beta^t*xi > 0} (1 - yi*beta^t*xi)^2
-	//long double loss;
+	//LONG_DOUBLE loss;
     
 	// cache of all rules used in model.
 	std::map <string,space_t *> used_rule_cache;
     
-	std::map <string, long double> final_model_cache;
+	std::map <string, LONG_DOUBLE> final_model_cache;
     
-	std::map <string, long double> features_cache;
-	//map<string, long double>::iterator features_it;
+	std::map <string, LONG_DOUBLE> features_cache;
+	//map<string, LONG_DOUBLE>::iterator features_it;
     
 	// Objective function. For now choice between logistic regression and l2 (Squared Hinge Loss) or l1 (Hinge loss) SVM loss.
 	unsigned int objective;
 	// Regularizer value.
-	long double C;
+	LONG_DOUBLE C;
 	// Weight on L1 vs L2 regularizer.
-	long double alpha;
+	LONG_DOUBLE alpha;
     
 	// p for the Lp norm on the regularization (and complemntary q)
-	long double Lp;
-	long double Lq;
+	LONG_DOUBLE Lp;
+	LONG_DOUBLE Lq;
+
+    // true means don't use counts, just use existance of feature in document.
+    bool binary_features;
 
 	// The sum of squared values of all non-zero beta_j.
-	long double sum_squared_betas;
+	LONG_DOUBLE sum_squared_betas;
     
 	// The sum of abs values of all non-zero beta_j.
-	long double sum_abs_betas;
+	LONG_DOUBLE sum_abs_betas;
     
+    // set of unigrams with sufficient support (to check possible extensions of ngram phrase)
 	std::set <string> single_node_minsup_cache;
+    std::map <string, space_t> unigrams;
     
 	// tokens that are banned from consideration.  No phrase
 	// can cross them, and they cannot be components of phrases.
@@ -494,7 +511,7 @@ public:
 	// Pointer to current rule.
 	space_t      *rule;
 	// Current suboptimal gradient.
-	long double       tau;
+	LONG_DOUBLE       tau;
     
     
     
@@ -503,7 +520,7 @@ public:
     
 
 	// How much to inflate the weight of positive features.
-	long double positive_weight;
+	LONG_DOUBLE positive_weight;
 
 	// Max length for an ngram.
 	unsigned int maxpat;
@@ -528,7 +545,7 @@ public:
     
 	// Convergence threshold on aggregated change in score predictions.
 	// Can be used as a regularization parameter.
-	long double convergence_threshold;
+	LONG_DOUBLE convergence_threshold;
     
 	// Verbosity level: 0 - print no information,
 	// 					1 - print profiling information,
@@ -551,10 +568,10 @@ public:
 	// number of iterations run for gradient descent
 	unsigned int itr;
 
-	//long double LDBL_MAX = numeric_limits<long double>::max();
+	//LONG_DOUBLE LDBL_MAX = numeric_limits<LONG_DOUBLE>::max();
 
 	// for keeping history of model
-	std::vector < long double >    history_steps;
+	std::vector < LONG_DOUBLE >    history_steps;
 	std::vector < string >         history_ngrams;
 
 
@@ -585,21 +602,41 @@ public:
         history_steps.clear();
         history_ngrams.clear();
 
+        reset_tree();
+        
         gettimeofday(&t_origin, NULL);
 
 	}
     
+    // have the unigrams been culled?
+    bool has_unigram_cache() {
+        return !unigrams.empty();
+    }
+    
+    
+    // Reset tree for a new textreg run.
+    void reset_tree() {
+        unigrams.clear();
+        single_node_minsup_cache.clear();
+
+        gettimeofday(&t_origin, NULL);
+    }
+    
+    
     void set_Lp( double new_Lp ) {
-		assert( "Lp >= 1", new_Lp >= 1 );
-
-		glob_Lp = new_Lp;
-
+		my_assert( new_Lp >= 1 );
+        
     	Lp = new_Lp;
     	if ( Lp >= LP_INFINITY ) {
+            Lp = LP_INFINITY;
     		Lq = 1.0;
     	} else {
     		Lq = 1.0 / (1.0 - 1.0/Lp);
     	}
+        
+        if ( verbosity >= 2 ) {
+            Rcout << "\nLp set to " << Lp << " with Lq = " << Lq << endl;
+        }
     }
     
 	void print_settings( unsigned int maxitr ) {
@@ -611,6 +648,8 @@ public:
         << "\n\ttraversal_strategy: " << (traversal_strategy == BFS ? "BFS" : "DFS")
         << "\n\tconvergence_threshold: " 	<< convergence_threshold
         << "\n\tC (regularizer value): " << C
+        << "\n\tLp / Lq: " << Lq << " / " << Lp // switched on purpose.  Legacy code.
+        << "\n\tb (binary only): " << binary_features
         << "\n\tp (positive only): " << pos_only
         << "\n\talpha (weight on l1_vs_l2_regularizer): " << alpha  << "\n\tverbosity: " << verbosity
         << "\n\tFile Mode: " << FILE_INPUT_MODE << " (single file = " << SINGLE_FILE << ")"<< endl;
@@ -621,9 +660,9 @@ public:
 	/*
 	 * Print out the loss for each document.  Also print out total loss (with penalty).
 	 */
-	void print_estimates( vector<long double>& sum_betas, bool print_cache ) {
-		long double loss = 0;
-		long double tloss;
+	void print_estimates( vector<LONG_DOUBLE>& sum_betas, bool print_cache ) {
+		LONG_DOUBLE loss = 0;
+		LONG_DOUBLE tloss;
 		Rcout << "n\ty\txbeta\t\tloss" << endl;
         
 		for ( unsigned int i = 0; i < corpus.size(); i++ ) {
@@ -657,16 +696,16 @@ public:
 			if ( features_cache.empty() ) {
 				Rcout << "\tempty" << endl;
 			}
-			long double sum_squared_betas = 0.0;
-			long double sum_abs_betas = 0.0;
-			for(std::map<string,long double>::iterator iter = features_cache.begin(); iter != features_cache.end(); ++iter) {
+			LONG_DOUBLE sum_squared_betas = 0.0;
+			LONG_DOUBLE sum_abs_betas = 0.0;
+			for(std::map<string,LONG_DOUBLE>::iterator iter = features_cache.begin(); iter != features_cache.end(); ++iter) {
 				sum_squared_betas += pow( iter->second, 2 );
 				sum_abs_betas += abs( iter->second );
 				Rcout << "\t" << iter->first << "\t" << iter->second << endl;
 			}
 		}
 		if ( C != 0 ) {
-			long double pen = calc_penalty( sum_abs_betas, sum_squared_betas, 0, 0 );
+			LONG_DOUBLE pen = calc_penalty( sum_abs_betas, sum_squared_betas, 0, 0 );
 			Rcout << "Loss + C*Penalty: " <<  setprecision(3) << loss << " + " << setprecision(3) << C << " * " << setprecision(3) << (pen/C) << " = " << (pen+loss) << endl;
 		}
 	}
@@ -676,7 +715,7 @@ public:
 	/**
 	 * Calculate some summary statistics for the given feature 'rule'
 	 */
-	void print_rule_stats( space_t *rule, long double beta, std::ostream &os ) {
+	void print_rule_stats( space_t *rule, LONG_DOUBLE beta, std::ostream &os ) {
 		int pos_count = 0;
 		//int pos_word_count = 0;
 		int neg_count = 0;
@@ -708,7 +747,7 @@ public:
 	 * Print out all the rules in the model with details about those rules
 	 * in a tab-separated form.
 	 */
-	void print_full_model( std::map<string,long double> &model, unsigned int itr, unsigned int maxitr, std::ostream &os  ) {
+	void print_full_model( std::map<string,LONG_DOUBLE> &model, unsigned int itr, unsigned int maxitr, std::ostream &os  ) {
 		print_ban_list( os );
 		os << "END BAN\n";
 		os << "# Positive: " << num_pos << endl;
@@ -718,8 +757,8 @@ public:
 		os << "START MODEL" << endl;
 		os << "beta\tZ\tweight\tsupport\tdoc_sup\tpos\tneg\tper\tperpos\tperneg\tpos w\tneg w\tper w\tngram\n";
 		// negative ones only
-		for(std::map<string,long double>::iterator iter = model.begin(); iter != model.end(); ++iter) {
-			assert( "number of rules is more than 0", used_rule_cache.count( iter->first )  > 0 );
+		for(std::map<string,LONG_DOUBLE>::iterator iter = model.begin(); iter != model.end(); ++iter) {
+			my_assert( used_rule_cache.count( iter->first )  > 0 );
 			space_t *rule = used_rule_cache[iter->first];
 			//rule->debug_print_support();
 			if ( iter->second <= 0 ) {
@@ -727,7 +766,7 @@ public:
 			}
 		}
 		// now positive
-		for(std::map<string,long double>::iterator iter = model.begin(); iter != model.end(); ++iter) {
+		for(std::map<string,LONG_DOUBLE>::iterator iter = model.begin(); iter != model.end(); ++iter) {
 			space_t *rule = used_rule_cache[iter->first];
 			if ( iter->second > 0 ) {
 				print_rule_stats( rule, iter->second, os );
@@ -748,8 +787,7 @@ public:
 
 		Rcpp::StringVector ngramsV( history_steps.size() );
 
-		int cntr = 0;
-		for(unsigned int i = 0; i < history_steps.size(); i++ ) {
+		for( unsigned int i = 0; i < history_steps.size(); i++ ) {
 			stepsV[i] = history_steps[i];
 			ngramsV[i] = history_ngrams[i];
 		}
@@ -769,12 +807,12 @@ public:
 	/**
 	 * Make Rcpp List of all the rules
 	 */
-	Rcpp::List make_rule_set(std::map<string,long double> &model ) {
+	Rcpp::List make_rule_set(std::map<string,LONG_DOUBLE> &model ) {
 		Rcpp::List rulesV( model.size() );
 
 		int cntr = 0;
-		for(std::map<string,long double>::iterator iter = model.begin(); iter != model.end(); ++iter) {
-			assert( "make_rule_set number of rules is more than 0", used_rule_cache.count( iter->first )  > 0 );
+		for(std::map<string,LONG_DOUBLE>::iterator iter = model.begin(); iter != model.end(); ++iter) {
+			my_assert(  used_rule_cache.count( iter->first )  > 0 );
 			space_t *rule = used_rule_cache[iter->first];
 
 			rulesV[ cntr ] = rule->to_Rcpp_list();
@@ -792,7 +830,7 @@ public:
 	 *
 	 * (This could probably be pushed into R instead of being in C++.)
 	 */
-	DataFrame make_full_model_dataframe( std::map<string,long double> &model ) {
+	DataFrame make_full_model_dataframe( std::map<string,LONG_DOUBLE> &model ) {
 
 		Rcpp::NumericVector betaV;
 		Rcpp::NumericVector ZV;
@@ -800,10 +838,10 @@ public:
 		Rcpp::IntegerVector posCountV, negCountV, numPosV, numNegV, supportV, totalDocV;
 		//, posWordCountV, negWordCountV;
 
-		for(std::map<string,long double>::iterator iter = model.begin(); iter != model.end(); ++iter) {
-					assert( "make_full_model_dataframe number of rules is more than 0", used_rule_cache.count( iter->first )  > 0 );
+		for(std::map<string,LONG_DOUBLE>::iterator iter = model.begin(); iter != model.end(); ++iter) {
+					my_assert( used_rule_cache.count( iter->first )  > 0 ); // "make_full_model_dataframe number of rules is more than 0",
 					space_t *rule = used_rule_cache[iter->first];
-					long double beta = iter->second;
+					LONG_DOUBLE beta = iter->second;
 
 					int pos_count = 0;
 				//	int pos_word_count = 0;
@@ -820,9 +858,9 @@ public:
 								}
 					}
 
-					float per = (float)pos_count / (rule->total_docs);
-					float perpos = (float)pos_count / num_pos;
-					float perneg = (float)neg_count / num_neg;
+//					float per = (float)pos_count / (rule->total_docs);
+//					float perpos = (float)pos_count / num_pos;
+//					float perneg = (float)neg_count / num_neg;
 				//	float word_per = (float)pos_word_count / (rule->total_support);
 
 
@@ -848,8 +886,8 @@ public:
 
 
 
-	void print_out_model( std::map<string,long double> &model, std::ostream &os ) {
-		for(std::map<string,long double>::iterator iter = model.begin(); iter != model.end(); ++iter) {
+	void print_out_model( std::map<string,LONG_DOUBLE> &model, std::ostream &os ) {
+		for(std::map<string,LONG_DOUBLE>::iterator iter = model.begin(); iter != model.end(); ++iter) {
 			os << iter->second << '\t' << iter->first << endl;
 		}
 	}
@@ -898,7 +936,6 @@ public:
 		const int kMaxLineSize = 10000000;
 		char *line = new char[kMaxLineSize];
 		string doc;
-		char *column[5];
 
 		num_pos = 0;
 		num_neg = 0;
@@ -946,22 +983,22 @@ public:
 			Rcout.flush();
 		}
 
-		assert( "right number of labels", labelV.size() == line_cntr );
+		my_assert( labelV.size() == line_cntr ); //"right number of labels",
 		return true;
 	}
 
 
     
     
-    void finish_initializing( int maxitr ) {
+    void finish_initializing() {
 		num_pos = 0;
         num_neg = 0;
         unsigned int num_lab = y.size();
-        for (unsigned int i = 0; i < y.size(); i++ ) {
+        for ( unsigned int i = 0; i < y.size(); i++ ) {
             if (y[i] == 1) num_pos++ ;
             if (y[i] == -1) num_neg++ ;
         }
-        assert( "label vec match corp size", num_lab == corpus.size() );
+        my_assert( num_lab == corpus.size() ); // "label vec match corp size",
 
         if ( verbosity > 0 ) {
         	Rcout << "There are " << banned_words.size() << " banned words\n";
@@ -976,7 +1013,7 @@ public:
         	Rcout.flush();
         }
         
-		assert( "has valid objective", objective == 0 || objective == 1 || objective == 2 );
+		my_assert(  objective == 0 || objective == 1 || objective == 2 ); //"has valid objective",
         
         
     }
@@ -984,7 +1021,7 @@ public:
 	   
 
     
-	long double calc_exp_fraction( long double y, long double xbeta ) {
+	LONG_DOUBLE calc_exp_fraction( LONG_DOUBLE y, LONG_DOUBLE xbeta ) {
 		if (y * xbeta > 8000) {
 			return 0;
 		} else {
@@ -996,13 +1033,13 @@ public:
     
 	// compute gradient of given featue 'space' at xbeta_0 without including the regularization terms
 	// loc is list of documents that have a specific feature
-	space_t *calc_gradient( space_t *space, std::vector<long double> &xbeta_0  ) {
-		long double dbeta = 0.0;
+	space_t *calc_gradient( space_t *space, std::vector<LONG_DOUBLE> &xbeta_0  ) {
+		LONG_DOUBLE dbeta = 0.0;
         
 		if ( verbosity > 4 ) {
 			Rcout << "Calc gradient of " << space->ngram << endl;
 		}
-		assert( "calc gradient using converted space", space->isConverted() );
+		my_assert( space->isConverted() ); // "calc gradient using converted space",
         
 		vector<int> &weights = space->weight;
 		std::vector <unsigned int>& support = space->doc_support;
@@ -1097,9 +1134,9 @@ public:
 
 
 	// compute gradient for intercept
-	long double calc_int_gradient( std::vector<long double> &xbeta_vector ) {
-		long double grad = 0.0;
-		long double sc = 0.0;
+	LONG_DOUBLE calc_int_gradient( std::vector<LONG_DOUBLE> &xbeta_vector ) {
+		LONG_DOUBLE grad = 0.0;
+		LONG_DOUBLE sc = 0.0;
 		//Rcout << "int grad calc" << endl;
 		for (unsigned int j = 0; j < corpus.size(); ++j) {
 			sc =  ( y[j] == 1 ) ? positive_weight : -1;
@@ -1150,7 +1187,7 @@ public:
 		rule = space;
 	}
     
-	void update_best_rule_to_intercept( long double gradient ) {
+	void update_best_rule_to_intercept( LONG_DOUBLE gradient ) {
 		tau = std::abs(gradient) + TINY_WEIGHT;
 		int_rule.gradient = gradient;
 		rule = &int_rule;
@@ -1158,7 +1195,7 @@ public:
     
     
     
-	int calc_sign( long double val ) {
+	int calc_sign( LONG_DOUBLE val ) {
 		return val > 0 ? +1 : (val < 0 ? -1 : 0);
 		//		abs(features_it->second)/features_it->second
 	}
@@ -1166,7 +1203,7 @@ public:
 	/*
 	 * Shrink val amount to 0, but stick at 0 if needed.
 	 */
-	long double shrink_to_zero( long double val, long double amount ) {
+	LONG_DOUBLE shrink_to_zero( LONG_DOUBLE val, LONG_DOUBLE amount ) {
 		if ( val > amount ) {
 			return val - amount;
 		} else if ( val < -amount ) {
@@ -1177,7 +1214,7 @@ public:
 	}
     
     
-	long double penalize( long double grad, long double beta, long double alpha, long double C ) {
+	LONG_DOUBLE penalize( LONG_DOUBLE grad, LONG_DOUBLE beta, LONG_DOUBLE alpha, LONG_DOUBLE C ) {
 		if ( beta == 0 ) {
 			return shrink_to_zero( grad, alpha*C );
 		} else if ( beta < 0 ) {
@@ -1196,11 +1233,11 @@ public:
 	 *
 	 * cur_beta = features_cache.end() means space is still at 0 for its coefficient.
 	 */
-	void calc_gradient_and_update( space_t *space, map<string, long double>::iterator cur_beta ) {
+	void calc_gradient_and_update( space_t *space, map<string, LONG_DOUBLE>::iterator cur_beta ) {
 		total++;
         
-		assert( "calc-and-update using converted space", space->isConverted() );
-		assert( "calc-and-update sufficient support", space->total_support >= minsup );
+		my_assert( space->isConverted() );// "calc-and-update using converted space",
+		my_assert( space->total_support >= minsup );
         
 		if ( verbosity > 4 ) {
 			space->print_space();
@@ -1250,9 +1287,9 @@ public:
 	 *   nonzero spots.
 	 */
 	void check_model_features() {
-		map<string, long double>::iterator feat_it = features_cache.begin();
+		map<string, LONG_DOUBLE>::iterator feat_it = features_cache.begin();
 		for ( feat_it = features_cache.begin(); feat_it != features_cache.end(); feat_it++ ) {
-			assert( "check count nonzero", used_rule_cache.count( feat_it->first )  > 0 );
+			my_assert( used_rule_cache.count( feat_it->first )  > 0 );
 			space_t *space = used_rule_cache[ feat_it->first ];
             
 			calc_gradient_and_update( space, feat_it );
@@ -1431,7 +1468,7 @@ public:
 			if ( verbosity > 3 ) {
 				Rcout << "Converting space and calculating support and weights for " << child << "\n";
 			}
-			child->calc_support_weights();
+			child->calc_support_weights( Lp, binary_features );
 		}
         
 		if ( child->total_support < minsup ) {
@@ -1439,7 +1476,7 @@ public:
 		}
 
 		// check if we already have beta.
-		map<string, long double>::iterator features_it = features_cache.find(child->ngram);
+		map<string, LONG_DOUBLE>::iterator features_it = features_cache.find(child->ngram);
 		if (features_it != features_cache.end()) {
 			// we have calculated at beginning.  Gradient info already done.
 			//Rcout << "skipping calulating prev. term " << child->ngram << endl;
@@ -1547,7 +1584,7 @@ public:
 	 * If new_beta_coef and old_beta_coef are not 0, then it will add new and subtract old from the sums of betas
 	 * to get appropriate penalty.
 	 */
-	long double calc_penalty( long double sum_abs_betas, long double sum_squared_betas, long double new_beta_coef, long double old_beta_coef ) {
+	LONG_DOUBLE calc_penalty( LONG_DOUBLE sum_abs_betas, LONG_DOUBLE sum_squared_betas, LONG_DOUBLE new_beta_coef, LONG_DOUBLE old_beta_coef ) {
 		if (old_beta_coef == 0 ) {
 			return C * (alpha * (sum_abs_betas + abs(new_beta_coef)) + (1 - alpha) * 0.5 * (sum_squared_betas + pow(new_beta_coef, 2)));
 		} else {
@@ -1565,12 +1602,12 @@ public:
      *    We don't need to know which feature corresponds to delta_beta in this case to calc loss given the X'b.
      *    delta_beta captures change in beta for feature (included in X'b calc already).   old value can be retrieved by features_it
      */
-	long double calc_loss( 	std::vector<long double> &sum_betas,
-                          map<string, long double>::iterator &features_it,
-                          long double delta_beta,
+	LONG_DOUBLE calc_loss( 	std::vector<LONG_DOUBLE> &sum_betas,
+                          map<string, LONG_DOUBLE>::iterator &features_it,
+                          LONG_DOUBLE delta_beta,
                           bool penalize ) {
-		long double loss = 0;
-		long double delt = 0.0;
+		LONG_DOUBLE loss = 0;
+		LONG_DOUBLE delt = 0.0;
 		for (unsigned int i = 0; i < corpus.size();  ++i) {
 			// Compute loss.
 			delt = 0;
@@ -1608,7 +1645,7 @@ public:
 				loss = loss + calc_penalty( sum_abs_betas, sum_squared_betas, delta_beta, 0 );
 			} else {
 				// This feature was selected before.  Adjust to take old value into account
-				long double new_beta_coef =  features_it->second + delta_beta;
+				LONG_DOUBLE new_beta_coef =  features_it->second + delta_beta;
 				loss = loss + calc_penalty( sum_abs_betas, sum_squared_betas, new_beta_coef, features_it->second );
 			}
 		}// end handling possible regularization.
@@ -1621,8 +1658,8 @@ public:
 	 * No longer used.
 	 * Don't understand dependence on n --- summing over all docs.  Also, why not just look at beta itself?
 	 */
-	long double calc_current_range( vector<long double>& sum_best_beta_n0, vector<long double>& sum_best_beta_n2 ) {
-		long double current_range_size = 0.0;
+	LONG_DOUBLE calc_current_range( vector<LONG_DOUBLE>& sum_best_beta_n0, vector<LONG_DOUBLE>& sum_best_beta_n2 ) {
+		LONG_DOUBLE current_range_size = 0.0;
 		for (unsigned int i = 0; i < corpus.size();  ++i) {
 			if (step_verbosity > 5 && i == 0) {
 				Rcout << "\nsum_best_beta_n0[i]: " << sum_best_beta_n0[i];
@@ -1649,7 +1686,7 @@ public:
 	// the feature.  I.e. xbeta_00 = xbeta^b[rule.doc_support[0]] for some xbeta^b
 	//
 	// Note: x_{ir} = weight_{ir} / Z_r, with Z the normalizing constant.
-	long double extract_delta_beta( space_t &rule, vector<long double> &xbeta, long double xbeta_00 ) {
+	LONG_DOUBLE extract_delta_beta( space_t &rule, vector<LONG_DOUBLE> &xbeta, LONG_DOUBLE xbeta_00 ) {
 		return rule.Z * (xbeta[rule.doc_support[0]] - xbeta_00) / rule.weight[0];
 		// incorp Zs
 	}
@@ -1674,34 +1711,34 @@ public:
 	// param:
 	//  xbeta_00:  the original starting point value of x*beta for the first document in the support of the rule
 	//             both above used to back-calculate the step-size and changes to the loss function if regularized.
-	void find_best_range(	vector<long double>& sum_best_beta_n0,
-                         vector<long double>& sum_best_beta_n1,
-                         vector<long double>& sum_best_beta_n2,
+	void find_best_range(	vector<LONG_DOUBLE>& sum_best_beta_n0,
+                         vector<LONG_DOUBLE>& sum_best_beta_n1,
+                         vector<LONG_DOUBLE>& sum_best_beta_n2,
                          space_t& rule,
-                         long double &xbeta_00,
-                         vector<long double>* sum_best_beta_opt,
+                         LONG_DOUBLE &xbeta_00,
+                         vector<LONG_DOUBLE>* sum_best_beta_opt,
                          bool penalize ) {
         
-		vector<long double> sum_best_beta_mid_n0_n1(corpus.size());
-		vector<long double> sum_best_beta_mid_n1_n2(corpus.size());
+		vector<LONG_DOUBLE> sum_best_beta_mid_n0_n1(corpus.size());
+		vector<LONG_DOUBLE> sum_best_beta_mid_n1_n2(corpus.size());
         
-		long double min_range_size = 1e-4;
-		//long double current_range_size = 0;
+		LONG_DOUBLE min_range_size = 1e-4;
+		//LONG_DOUBLE current_range_size = 0;
 		int current_interpolation_iter = 0;
         
-		long double loss_mid_n0_n1 = 0;
-		long double loss_mid_n1_n2 = 0;
-		long double loss_n1 = 0;
+		LONG_DOUBLE loss_mid_n0_n1 = 0;
+		LONG_DOUBLE loss_mid_n1_n2 = 0;
+		LONG_DOUBLE loss_n1 = 0;
         
 		//current_range_size = calc_current_range( sum_best_beta_n0, sum_best_beta_n2 );
         
-		long double beta_coef_n0 = extract_delta_beta( rule, sum_best_beta_n0, xbeta_00 );
-		long double beta_coef_n1 = 0;
-		long double beta_coef_mid_n0_n1 = 0;
-		long double beta_coef_mid_n1_n2 = 0;
-		long double beta_coef_n2 = extract_delta_beta( rule, sum_best_beta_n2, xbeta_00 );
+		LONG_DOUBLE beta_coef_n0 = extract_delta_beta( rule, sum_best_beta_n0, xbeta_00 );
+		LONG_DOUBLE beta_coef_n1 = 0;
+		LONG_DOUBLE beta_coef_mid_n0_n1 = 0;
+		LONG_DOUBLE beta_coef_mid_n1_n2 = 0;
+		LONG_DOUBLE beta_coef_n2 = extract_delta_beta( rule, sum_best_beta_n2, xbeta_00 );
         
-		map<string, long double>::iterator features_it = features_cache.find(rule.ngram);
+		map<string, LONG_DOUBLE>::iterator features_it = features_cache.find(rule.ngram);
         
 		if ( step_verbosity > 3 ) {
 			Rcout << "beta_coef n0 = " << beta_coef_n0 << "\nbeta_coef_n2 = " << beta_coef_n2 << endl;
@@ -1802,23 +1839,23 @@ public:
 	// looking at moving along feature as defined by rule
 	// find three points, n0, n1, n2 with the minimum loss somewhere in that range
 	void find_bracketing_range( space_t &rule,
-                               vector<long double>& sum_best_beta_n0, vector<long double>& sum_best_beta_n1, vector<long double>& sum_best_beta_n2,
+                               vector<LONG_DOUBLE>& sum_best_beta_n0, vector<LONG_DOUBLE>& sum_best_beta_n1, vector<LONG_DOUBLE>& sum_best_beta_n2,
                                bool penalize, bool pos_beta_only ) {
 		// Starting value for parameter in step size search.
 		// Set the initial epsilon value small enough to guarantee
 		// log-likelihood increases in the first steps.
-		long double exponent = ceil(log10(abs(rule.gradient)));
-		long double epsilon = min((float)1e-3, pow((float)10, (float)-exponent));
-		long double step = 0.0;
+		LONG_DOUBLE exponent = ceil(log10(abs(rule.gradient)));
+		LONG_DOUBLE epsilon = min((float)1e-3, pow((float)10, (float)-exponent));
+		LONG_DOUBLE step = 0.0;
         
 		if (step_verbosity > 3) {
 			Rcout << "\nrule.ngram: " << rule.ngram << "\nrule.gradient: " << rule.gradient << "\nexponent of epsilon: " << -exponent << "\nepsilon: " << epsilon << endl;
 		}
         
 		// To Keep track of loss at the three points, n0, n1, n2.
-		long double loss_n0 = 0;
-		long double loss_n1 = 0;
-		long double loss_n2 = 0;
+		LONG_DOUBLE loss_n0 = 0;
+		LONG_DOUBLE loss_n1 = 0;
+		LONG_DOUBLE loss_n2 = 0;
         
 		// Binary search for epsilon. Similar to bracketing phase in which
 		// we search for some range with promising epsilon.
@@ -1830,11 +1867,11 @@ public:
 		int n = 0;
         
 		// find prev incarnation of rule
-		map<string, long double>::iterator  features_it = features_cache.find(rule.ngram);
+		map<string, LONG_DOUBLE>::iterator  features_it = features_cache.find(rule.ngram);
 		loss_n1 = loss_n2 = calc_loss( sum_best_beta_n1, features_it, 0, true );
         
 		// find current beta for rule to check crossing 0 boundary
-		long double old_beta_Z = 0.0;
+		LONG_DOUBLE old_beta_Z = 0.0;
 		if ( features_it != features_cache.end() ) {
 			old_beta_Z = features_it->second / rule.Z;
 			if ( step_verbosity > 1 ) {
@@ -1842,7 +1879,7 @@ public:
 			}
 		}
 		bool hit_wall = 0;
-		long double beta_coeficient_update_Z = 0;   // cumulative update to beta divided by norm constant Z
+		LONG_DOUBLE beta_coeficient_update_Z = 0;   // cumulative update to beta divided by norm constant Z
 		do {
 			// For each location (e.g. docid), update the score of the documents containing best rule.
 			// E.g. update beta^t * xi.
@@ -1913,13 +1950,13 @@ public:
 	// epsilon is the starting value
 	// rule contains info about the gradient at the current iteration
 	// xbeta_0 is the Xbeta vector (one value for each document) of the starting point.
-	void binary_line_search(space_t& rule, vector<long double>& xbeta_0, vector<long double>* sum_best_beta_opt) {
+	void binary_line_search(space_t& rule, vector<LONG_DOUBLE>& xbeta_0, vector<LONG_DOUBLE>* sum_best_beta_opt) {
         
 		// Keep track of scalar product at points beta_n-1, beta_n and beta_n+1.
 		// They are denoted with beta_n0, beta_n1, beta_n2.
-		vector<long double> sum_best_beta_n0(xbeta_0);
-		vector<long double> sum_best_beta_n1(xbeta_0);
-		vector<long double> sum_best_beta_n2(xbeta_0);
+		vector<LONG_DOUBLE> sum_best_beta_n0(xbeta_0);
+		vector<LONG_DOUBLE> sum_best_beta_n1(xbeta_0);
+		vector<LONG_DOUBLE> sum_best_beta_n2(xbeta_0);
         
 		find_bracketing_range( rule, sum_best_beta_n0, sum_best_beta_n1, sum_best_beta_n2, rule.penalize, pos_only );
         
@@ -1940,10 +1977,10 @@ public:
 	// Find intercept.  Uses binary line search.  Possibly this function should
 	// be merged into other one.
 	// return the change in the intercept
-	long double intercept_search(vector<long double>* sum_best_beta_opt) {
-		vector<long double> sum_best_beta_n0(*sum_best_beta_opt);
-		vector<long double> sum_best_beta_n1(*sum_best_beta_opt);
-		vector<long double> sum_best_beta_n2(*sum_best_beta_opt);
+	LONG_DOUBLE intercept_search(vector<LONG_DOUBLE>* sum_best_beta_opt) {
+		vector<LONG_DOUBLE> sum_best_beta_n0(*sum_best_beta_opt);
+		vector<LONG_DOUBLE> sum_best_beta_n1(*sum_best_beta_opt);
+		vector<LONG_DOUBLE> sum_best_beta_n2(*sum_best_beta_opt);
         
 		//Rcout << "intercept search" << endl;
         
@@ -1953,17 +1990,17 @@ public:
 		// find range, no regularization since this is intercept.
 		find_bracketing_range( int_rule, sum_best_beta_n0, sum_best_beta_n1, sum_best_beta_n2, false, false );
         
-		vector<long double> sum_best_beta_mid_n0_n1(corpus.size());
-		vector<long double> sum_best_beta_mid_n1_n2(corpus.size());
+		vector<LONG_DOUBLE> sum_best_beta_mid_n0_n1(corpus.size());
+		vector<LONG_DOUBLE> sum_best_beta_mid_n1_n2(corpus.size());
         
-		long double xbeta_00 = (*sum_best_beta_opt)[int_rule.doc_support[0]];
+		LONG_DOUBLE xbeta_00 = (*sum_best_beta_opt)[int_rule.doc_support[0]];
 		if ( step_verbosity > 3 ) {
 			Rcout << "Original xbeta_00: " << xbeta_00 << endl;
 		}
 		find_best_range(sum_best_beta_n0, sum_best_beta_n1, sum_best_beta_n2,
                         int_rule, xbeta_00, sum_best_beta_opt, false );
         
-		long double int_step = (*sum_best_beta_opt)[int_rule.doc_support[0]] - xbeta_00;
+		LONG_DOUBLE int_step = (*sum_best_beta_opt)[int_rule.doc_support[0]] - xbeta_00;
 		if ( step_verbosity > 3 ) {
 			Rcout << "Intercept step found to be " << int_step << endl;
 		}
@@ -1995,7 +2032,7 @@ public:
 			}
             
 			for (unsigned int pos = 0; pos < corpus[docid].size(); ++pos) {
-				// Skip white spaces. They are not considered as unigrams.
+				// Skip white spaces. They are not considered to be unigrams.
 				if (isspace(corpus[docid][pos])) {
 					at_space = true;
 					continue;
@@ -2019,11 +2056,10 @@ public:
 					} else {
 						unigram.push_back(corpus[docid][pos]);
 					}
-				} else {
-					// Char (i.e. byte) level token.
+				} else {  // Char (i.e. byte) level token.
 					unigram = corpus[docid][pos];
 					space_t & tmp = unigrams[unigram];
-					tmp.add (docid,pos);
+					tmp.add (docid, pos);
 					tmp.set_ne( unigram );
 					unigram.clear();
 				}
@@ -2053,12 +2089,18 @@ public:
 			Rcout << "\n# distinct unigrams before culling: " << unigrams.size() << endl;
 			Rcout.flush();
 		}
+    }
+    
+    // Drop any unigram with insufficient support.
+    // Also build cache of possible phrase extensions.
+    void cull_unigram_list() {
+        
         
 		// Keep only unigrams above minsup threshold.
 		for (std::map <string, space_t>::iterator it = unigrams.begin (); it != unigrams.end(); ) {
 			
             if ( !it->second.isConverted() ) {
-                it->second.calc_support_weights();
+                it->second.calc_support_weights( Lp, binary_features );
             }
 			if ( it->second.support() < minsup ) {
 				//Rcout << "erasing unigram " << it->second.ne << endl;
@@ -2113,7 +2155,7 @@ public:
 	 * 2) Update the stored model in memory.
 	 * 3) Add ngram to rule cache if necessary.
 	 */
-	void add_to_model( space_t *rule, long double step, std::ofstream &os ) {
+	void add_to_model( space_t *rule, LONG_DOUBLE step, std::ofstream &os ) {
 		string &ngram = rule->ngram;
 		used_rule_cache[rule->ngram] = rule;
 		if ( os.is_open() ) {
@@ -2122,7 +2164,7 @@ public:
 			history_steps.push_back( step );
 			history_ngrams.push_back( ngram );
 		}
-		map<string, long double>::iterator features_it = final_model_cache.find(ngram);
+		map<string, LONG_DOUBLE>::iterator features_it = final_model_cache.find(ngram);
 		if (features_it == final_model_cache.end()) {
 			final_model_cache[ ngram ] = step;
 			if ( verbosity >=4 ) {
@@ -2184,7 +2226,7 @@ public:
                 
 				space_t *uni = &(it->second);
                 
-				map<string, long double>::iterator features_it = features_cache.find(uni->ngram);
+				map<string, LONG_DOUBLE>::iterator features_it = features_cache.find(uni->ngram);
 				if (features_it == features_cache.end()) {
 					calc_gradient_and_update( uni );
 				}
@@ -2224,7 +2266,7 @@ public:
                 
 				space_t *uni = &(it->second);
 				// first check to see if we are the new best bet.
-				map<string, long double>::iterator features_it = features_cache.find(uni->ngram);
+				map<string, LONG_DOUBLE>::iterator features_it = features_cache.find(uni->ngram);
 				if (features_it == features_cache.end()) {
 					calc_gradient_and_update( &(it->second) );
 				}
@@ -2257,10 +2299,10 @@ public:
 	 * and update the sum squared betas and abs betas by the extra step length added to the
 	 * current beta.
 	 */
-	void update_cumulative_weights( long double step_length_opt ) {
+	void update_cumulative_weights( LONG_DOUBLE step_length_opt ) {
 		// Insert or update new feature.
 		if ( rule->penalize ) {
-			map<string, long double>::iterator features_it = features_cache.find(rule->ngram);
+			map<string, LONG_DOUBLE>::iterator features_it = features_cache.find(rule->ngram);
 			if (features_it == features_cache.end()) {
 				// If feature not there, insert it.
 				//Rcout << "adding ngram '" << rule->ngram << "' to feature cache" << endl;
@@ -2288,7 +2330,7 @@ public:
 	 *
 	 *    The results gets stored in best_beta_opt
 	 */
-	void descend_one_step( unsigned int itr, std::ofstream &os, std::vector < long double > &sum_best_beta_opt ) {
+	void descend_one_step( unsigned int itr, std::ofstream &os, std::vector < LONG_DOUBLE > &sum_best_beta_opt ) {
         
 		if ( verbosity > 1 ) {
 			Rcout << "\n\n** Descending one step.  Iteration #" << itr << "\n";
@@ -2319,7 +2361,7 @@ public:
 		binary_line_search( *rule, sum_best_xbeta, &sum_best_beta_opt);
         
 		// The optimal step length as obtained from the line search.
-		long double step_length_opt = extract_delta_beta( *rule, sum_best_beta_opt, sum_best_xbeta[rule->doc_support[0]] );
+		LONG_DOUBLE step_length_opt = extract_delta_beta( *rule, sum_best_beta_opt, sum_best_xbeta[rule->doc_support[0]] );
 		if ( verbosity > 3 ) {
 			Rcout << "\nOptimal step length for feature '" << rule->ngram << "' found: " << step_length_opt << endl;
 		}
@@ -2328,7 +2370,7 @@ public:
 		update_cumulative_weights( step_length_opt );
         
 		// calc current loss
-		map<string, long double>::iterator features_it = features_cache.end();
+		map<string, LONG_DOUBLE>::iterator features_it = features_cache.end();
         
 		//Rcout << "time now: " << gettimeofday(t, NULL);
         
@@ -2336,13 +2378,13 @@ public:
 		add_to_model( rule, step_length_opt, os );
         
 		if (verbosity >= 1) {
-			long double loss = calc_loss( sum_best_beta_opt, features_it, 0, true );
+			LONG_DOUBLE loss = calc_loss( sum_best_beta_opt, features_it, 0, true );
 			Rcout <<  "\nItr " << itr << " results: size model: " << features_cache.size () << "    rewrite/prune/total: "
             << rewritten << "/" << pruned << "/" << total << " "
             << "   # nodes: " << total_nodes << "\n\tgradient: " << rule->gradient
             << "\n\tstep len: "<< step_length_opt << "\n\tngram: " << rule->ngram;
             
-			long double pen = calc_penalty(sum_abs_betas, sum_squared_betas, 0, 0 );
+			LONG_DOUBLE pen = calc_penalty(sum_abs_betas, sum_squared_betas, 0, 0 );
 			Rcout << "\n\tloss + penalty term = " << (loss - pen) << " + " << pen << " = " << loss << endl;
 			Rcout.flush();
 		}
@@ -2364,15 +2406,15 @@ public:
 		}
         
         //calc intercept
-		long double int_step = intercept_search( &sum_best_xbeta );
+		LONG_DOUBLE int_step = intercept_search( &sum_best_xbeta );
 		add_to_model( &int_rule, int_step, os );
         
-		map<string, long double>::iterator features_it = features_cache.end();
+		map<string, LONG_DOUBLE>::iterator features_it = features_cache.end();
 		if (verbosity > 1) {
-			long double loss = calc_loss( sum_best_xbeta, features_it, 0, false );
+			LONG_DOUBLE loss = calc_loss( sum_best_xbeta, features_it, 0, false );
 			Rcout <<  "\nIntercept Adjust #" << itr << ": " << "\n\tgradient: " << int_rule.gradient << "\n\tstep len: "<< int_step;
             
-			long double pen = calc_penalty(sum_abs_betas, sum_squared_betas, 0, 0 );
+			LONG_DOUBLE pen = calc_penalty(sum_abs_betas, sum_squared_betas, 0, 0 );
 			Rcout << "\n\tloss + penalty term = " << (loss - pen) << " + " << pen << " = " << loss << endl;
 			Rcout.flush();
             
@@ -2390,10 +2432,10 @@ public:
     
     
     
-	long double calc_convergence_rate( vector<long double>& xbeta_t0, vector<long double>& xbeta_t1 ) {
+	LONG_DOUBLE calc_convergence_rate( vector<LONG_DOUBLE>& xbeta_t0, vector<LONG_DOUBLE>& xbeta_t1 ) {
 		// calc some stats to determine convergence
-		long double sum_abs_scalar_prod_diff = 0;
-		long double sum_abs_scalar_prod = 0;
+		LONG_DOUBLE sum_abs_scalar_prod_diff = 0;
+		LONG_DOUBLE sum_abs_scalar_prod = 0;
 		for ( unsigned int k  = 0; k < (unsigned int)corpus.size(); ++k ) {
 			// Compute the sum of per document difference between the scalar product at 2 consecutive iterations.
 			sum_abs_scalar_prod_diff += abs(xbeta_t1[k] - xbeta_t0[k]);
@@ -2411,6 +2453,34 @@ public:
 	}
     
     
+    void initialize_run() {
+        // All beta coeficients are zero when starting.
+        sum_squared_betas = 0;
+        sum_abs_betas = 0;
+        
+        unsigned int l = corpus.size();
+        
+        // The starting point is beta = (0, 0, 0, 0, .....).
+        sum_best_xbeta.resize(l);
+        std::fill(sum_best_xbeta.begin(), sum_best_xbeta.end(), 0.0);
+        exp_fraction.resize (l);
+        std::fill (exp_fraction.begin(), exp_fraction.end(), 1.0 /2.0);
+        
+        // intercept is a rule with a weight of 1 on all the documents.
+        int_rule.ngram = INTERCEPT_STRING;
+        int_rule.doc_support.resize(l);
+        int_rule.weight.resize(l);
+        int_rule.penalize = false;
+        for ( unsigned int i = 0; i < corpus.size(); i++ ) {
+            int_rule.doc_support[i] = i;
+            int_rule.weight[i] = 1;
+        }
+        int_rule.total_support = l;
+        int_rule.total_docs = l;
+        int_rule.Z = 1;
+       
+    }
+    
 	bool run (const char *out_file,
               unsigned int maxitr ) {
         
@@ -2426,30 +2496,8 @@ public:
     	tau         = 0.0;
 		total_nodes = 0;
         
-		// All beta coeficients are zero when starting.
-		sum_squared_betas = 0;
-		sum_abs_betas = 0;
+        initialize_run();
         
-		unsigned int l = corpus.size();
-        
-		sum_best_xbeta.resize(l);
-		// The starting point is beta = (0, 0, 0, 0, .....).
-		std::fill(sum_best_xbeta.begin(), sum_best_xbeta.end(), 0.0);
-		exp_fraction.resize (l);
-		std::fill (exp_fraction.begin(), exp_fraction.end(), 1.0 /2.0);
-        
-		// intercept is a rule with a weight of 1 on all the documents.
-		int_rule.ngram = INTERCEPT_STRING;
-		int_rule.doc_support.resize(l);
-		int_rule.weight.resize(l);
-		int_rule.penalize = false;
-		for ( unsigned int i = 0; i < corpus.size(); i++ ) {
-			int_rule.doc_support[i] = i;
-			int_rule.weight[i] = 1;
-		}
-		int_rule.total_support = l;
-		int_rule.total_docs = l;
-		int_rule.Z = 1;
         
 		Rcout.setf(std::ios::fixed,std::ios::floatfield);
 		Rcout.precision(8);
@@ -2478,13 +2526,20 @@ public:
 		}
 
 		features_cache.clear();
+        history_steps.clear();
+        history_ngrams.clear();
+        used_rule_cache.clear();
+        final_model_cache.clear();
+        features_cache.clear();
         
-		long double convergence_rate;
+        gettimeofday(&t_origin, NULL);
+       
+		LONG_DOUBLE convergence_rate;
         
         
 		// Compute loss with start beta vector.
-		map<string, long double>::iterator features_it = features_cache.end();
-		long double loss = calc_loss( sum_best_xbeta, features_it, 0, false );
+		map<string, LONG_DOUBLE>::iterator features_it = features_cache.end();
+		LONG_DOUBLE loss = calc_loss( sum_best_xbeta, features_it, 0, false );
 		if (verbosity >= 1) {
 			Rcout << "start loss: " << loss << endl;
 		}
@@ -2493,10 +2548,10 @@ public:
 /*		// Iterate through unigrams to set them up.
 		for (std::map <string, space_t>::iterator it = unigrams.begin (); it != unigrams.end(); ++it) {
             space_t *uni = &(it->second);
-            uni->calc_support_weights();
+            uni->calc_support_weights( Lp, binary_features );
 		}
   */
-		std::vector < long double > 				sum_best_beta_opt;
+		std::vector < LONG_DOUBLE > 				sum_best_beta_opt;
         
         
 		//Rcout << "\nstart iterations... ";
@@ -2597,7 +2652,7 @@ public:
         }
         int n = y.size();
        
-        for (unsigned int sc_itr = 0; sc_itr < num_scrambles + 1; sc_itr++ ) {
+        for ( unsigned int sc_itr = 0; sc_itr < num_scrambles + 1; sc_itr++ ) {
             if ( verbosity > 1 ) {
                 Rcout << "\nBeginning find_C iteration\n";
                 Rcout.flush();
@@ -2643,8 +2698,10 @@ public:
             Rcout.precision(8);
             
              // adjust intercept (this modifies sum_best_xbeta)
-            long double int_step = intercept_search( &sum_best_xbeta );
-            
+            LONG_DOUBLE int_step = intercept_search( &sum_best_xbeta );
+            if ( verbosity > 4 ) {
+                Rcout << "Took step of size " << int_step << endl;
+            }
             if ( verbosity > 1 ) {
                 Rcout << "Finding best ngram\n";
             }
@@ -2682,63 +2739,63 @@ public:
 		return res;
 	} //end find_C().
     
-    
-    
-    
-    
 };
 
 
 
-// [[Rcpp::export]]
-RcppExport SEXP textreg(SEXP corpus, SEXP labeling, SEXP banned, SEXP params) {
-    
+SEXP textreg(Rcpp::XPtr<SeqLearner> seql_learner, Rcpp::List rparam) {
     
     // Step 1: read parameters for how to run ngram from R
     int maxiter = 100;
- 
     bool find_C = false;
     int find_C_iter = 0;
-    
-    Rcpp::StringVector bannedV = Rcpp::StringVector();
 
-    SeqLearner seql_learner;
-    std::string outfile = "none";
-
-    if ( seql_learner.verbosity > 1 ) {
+    if ( seql_learner->verbosity > 1 ) {
         Rcout << "beginning c++ ngram function call\n";
         Rcout.flush();
     }
     
     // get parameters
     try {
-        Rcpp::List rparam(params); 		// Get parameters in params.
-        seql_learner.C = Rcpp::as<double>(rparam["C"]);
-        seql_learner.pos_only = Rcpp::as<int>(rparam["positive.only"]);
-        seql_learner.maxpat = Rcpp::as<int>(rparam["max.pattern"]);
-        seql_learner.minpat = Rcpp::as<int>(rparam["min.pattern"]);
+        seql_learner->C = Rcpp::as<double>(rparam["C"]);
+        seql_learner->pos_only = Rcpp::as<int>(rparam["positive.only"]);
+        seql_learner->maxpat = Rcpp::as<int>(rparam["max.pattern"]);
+        seql_learner->minpat = Rcpp::as<int>(rparam["min.pattern"]);
 
-        seql_learner.minsup = Rcpp::as<int>(rparam["min.support"]);
-        seql_learner.maxgap = Rcpp::as<int>(rparam["gap"]);
-      //  seql_learner.token_type = Rcpp::as<int>(rparam["token.type"]);
-        seql_learner.convergence_threshold = Rcpp::as<double>(rparam["convergence.threshold"]);
-        seql_learner.verbosity = Rcpp::as<double>(rparam["verbosity"]);
-        seql_learner.step_verbosity = Rcpp::as<double>(rparam["step.verbosity"]);
-        seql_learner.set_Lp( Rcpp::as<double>(rparam["Lq"]) );  // WARNING: p is q in r package.
-        glob_binary_features = Rcpp::as<int>(rparam["binary.features"] );
-        seql_learner.positive_weight = Rcpp::as<int>(rparam["positive.weight"] );
+        unsigned int newminsup = Rcpp::as<int>(rparam["min.support"]);
+        if ( seql_learner->has_unigram_cache() && newminsup != seql_learner->minsup ) {
+            if ( seql_learner->verbosity > 0 ) {
+                Rcerr << "Warning: Resetting tree due to min support parameter change from " << seql_learner->minsup << " to " << newminsup << endl;
+            }
+            seql_learner->reset_tree();
+        }
+        seql_learner->minsup = newminsup;
 
+        seql_learner->maxgap = Rcpp::as<int>(rparam["gap"]);
+        //  seql_learner->token_type = Rcpp::as<int>(rparam["token.type"]);
+        seql_learner->convergence_threshold = Rcpp::as<double>(rparam["convergence.threshold"]);
+        seql_learner->verbosity = Rcpp::as<double>(rparam["verbosity"]);
+        seql_learner->step_verbosity = Rcpp::as<double>(rparam["step.verbosity"]);
+        
+        double newLp = Rcpp::as<double>(rparam["Lq"]);
+        if ( seql_learner->has_unigram_cache() && seql_learner->Lp != newLp ) {
+            if ( seql_learner->verbosity > 0 ) {
+                Rcerr << "Warning: Resetting tree due to Lq parameter change" << endl;
+            }
+            seql_learner->reset_tree();
+        }
+        //Rcout << "Setting Lp to " << newLp << endl;
+        seql_learner->set_Lp( newLp );  // WARNING: p is q in r package.
+
+        seql_learner->positive_weight = Rcpp::as<int>(rparam["positive.weight"] );
+
+        seql_learner->binary_features = Rcpp::as<int>(rparam["binary.features"] );
         maxiter       = Rcpp::as<int>(rparam["maxIter"]);
 
         find_C       = Rcpp::as<int>(rparam["findC"]);
         find_C_iter  = Rcpp::as<int>(rparam["findCIter"]);
-
-        //outfile = Rcpp::as<std::string>(rparam["output.file"]);
-
-        //        double tolerance     = Rcpp::as<double>(rparam["tolerance"]);
         
-        
-    } catch( std::exception &ex ) {		// or use END_RCPP macro
+    } catch (std::exception &ex) {		// or use END_RCPP macro
         Rprintf("Caught error\n" );
         Rcerr << "error diagnostic '" << ex.what() << "'" << endl;
         //Rcerr << ex << endl;
@@ -2748,81 +2805,41 @@ RcppExport SEXP textreg(SEXP corpus, SEXP labeling, SEXP banned, SEXP params) {
     	::Rf_error( "c++ exception (unknown reason)" );
     }
 
-    if ( seql_learner.verbosity > 1 ) {
+    if ( seql_learner->verbosity > 1 ) {
         Rcout << "parameters loaded\n";
         Rcout.flush();
     }
     // Rprintf("Checking Labeling Vector\n" );
-
-    try {
-
-
-    	//    	Rprintf("Adding Banned Words\n" );
-    	// add banned words
-    	if ( ! Rf_isNull(banned) ) {
-    		bannedV = Rcpp::StringVector(banned);
-
-			for ( int i = 0; i < bannedV.size(); i++ ) {
-				std::string stt = std::string(bannedV[i]);
-				seql_learner.add_banned_word( stt );
-			}
-		}
-
-    	// Step 2: Get the corpus vector
-    	Rcpp::StringVector corpusV(corpus);		// creates Rcpp string vector from SEXP
-    	Rcpp::NumericVector labelV(labeling);
-    	//    	Rprintf("Labeling vector is %d long\n", labelV.size() );
-    	//    	Rprintf("Corpus is %d long\n", corpusV.size() );
-
-    	// did we get a file name or the actual text from the corpus?
-    	if ( corpusV.size() == 1 && labelV.size() != 1 ) {
-
-    		bool res = seql_learner.read_in_data( std::string(corpusV[0]).c_str(), labelV );
-    		if ( !res ) {
-    			//Rcerr << "Failing to grab " << std::string(corpusV[0]) << endl;
-    			::Rf_error( "Failed to read in file data (file not found?)" );
-    		} else {
-    			if ( seql_learner.verbosity > 0 ) {
-    				Rcout << "Finished reading in from text file" << endl;
-    			}
-    		}
-    	} else {
-			for ( int i = 0; i < corpusV.size(); i++ ) {
-				std::string stt = std::string(corpusV[i]);
-				seql_learner.add_document( stt, labelV[i] );
-			}
-	   	}
-		seql_learner.finish_initializing(maxiter);
-
-    	// Step 3: Get going!
-    	seql_learner.make_unigram_list();
-
-
-    } catch( std::exception &ex ) {		// or use END_RCPP macro
-    	forward_exception_to_r( ex );
-    } catch(...) {
-    	::Rf_error( "c++ exception (unknown reason)" );
+	
+    // Step 3: Find all unigrams if not present.
+    if ( !seql_learner->has_unigram_cache() ) {
+        seql_learner->make_unigram_list();
+        seql_learner->cull_unigram_list();
+    } else {
+        if ( seql_learner->verbosity >= 1 ) {
+            Rcout << "No need to build unigram list as it is inherited from previous call" << endl;
+        }
     }
-
+    
     if ( !find_C ) {
         try {
-            seql_learner.run( NULL, maxiter );
+            seql_learner->run( NULL, maxiter );
             
-            if ( seql_learner.verbosity > 1 ) {
+            if ( seql_learner->verbosity > 1 ) {
                 Rcout << "assembling results to return" << endl;
                 Rcout.flush();
             }
-            DataFrame df = seql_learner.make_full_model_dataframe(seql_learner.final_model_cache);
-            List ruleset = seql_learner.make_rule_set( seql_learner.final_model_cache );
-            List search_path = seql_learner.make_search_path();
-            List notes = Rcpp::List(params);
-            notes[ "iter" ] = seql_learner.itr;
-            notes[ "n" ] = (unsigned int)seql_learner.corpus.size();
-            notes[ "Lp" ] = seql_learner.Lp;
-            notes[ "binary.features" ] = glob_binary_features;
-            notes[ "positivr.weight" ] = seql_learner.positive_weight;
+            DataFrame df = seql_learner->make_full_model_dataframe(seql_learner->final_model_cache);
+            List ruleset = seql_learner->make_rule_set( seql_learner->final_model_cache );
+            List search_path = seql_learner->make_search_path();
+            List notes = Rcpp::List(rparam);
+            notes[ "iter" ] = seql_learner->itr;
+            notes[ "n" ] = (unsigned int)seql_learner->corpus.size();
+            notes[ "Lp" ] = seql_learner->Lp;
+            notes[ "binary.features" ] = seql_learner->binary_features;
+            notes[ "positivr.weight" ] = seql_learner->positive_weight;
 
-            if ( seql_learner.verbosity > 1 ) {
+            if ( seql_learner->verbosity > 1 ) {
                 Rcout << "going to return" << endl;
                 Rcout.flush();
             }
@@ -2830,8 +2847,9 @@ RcppExport SEXP textreg(SEXP corpus, SEXP labeling, SEXP banned, SEXP params) {
             return Rcpp::List::create(_[ "model" ] = df,
                                   _[ "rules" ] = ruleset,
                                   _[ "notes" ] = notes,
-                                  _[ "labeling" ] =  seql_learner.y,
-                                  _[ "banlist" ] = bannedV,
+                                  _[ "labeling" ] =  seql_learner->y,
+                                  // TODO: Re-enable.
+                                  //_[ "banlist" ] = bannedV,
                                   _[ "path"] = search_path );
 
 
@@ -2841,12 +2859,12 @@ RcppExport SEXP textreg(SEXP corpus, SEXP labeling, SEXP banned, SEXP params) {
             ::Rf_error( "c++ exception (unknown reason)" );
         }
     } else {
-        if ( seql_learner.verbosity > 1 ) {
+        if ( seql_learner->verbosity > 1 ) {
             Rcout << "calling find_C\n";
             Rcout.flush();
         }
         try {
-            NumericVector res = seql_learner.find_C( find_C_iter );
+            NumericVector res = seql_learner->find_C( find_C_iter );
             
             return res;
             
@@ -2861,5 +2879,183 @@ RcppExport SEXP textreg(SEXP corpus, SEXP labeling, SEXP banned, SEXP params) {
 }
 
 
+Rcpp::XPtr<SeqLearner> build_corpus(Rcpp::StringVector corpusV, Rcpp::NumericVector labelV, 
+									Rcpp::StringVector bannedV, Rcpp::List rparam) 
+{
+    // Rcpp::StringVector bannedV = Rcpp::StringVector();
+	SeqLearner *seql_learner = new SeqLearner();
+    std::string outfile = "none";
 
 
+    if ( seql_learner->verbosity > 1 ) {
+        Rcout << "beginning c++ ngram function call\n";
+        Rcout.flush();
+    }
+    
+
+    // get parameters
+    try {
+        seql_learner->verbosity = Rcpp::as<double>(rparam["verbosity"]);
+//        seql_learner->minsup = Rcpp::as<int>(rparam["min.support"]);
+//        seql_learner->set_Lp( Rcpp::as<double>(rparam["Lq"]) );  // WARNING: p is q in r package.
+//        seql_learner->binary_features = Rcpp::as<int>(rparam["binary.features"] );
+
+
+    } catch (std::exception &ex) {		// or use END_RCPP macro
+        Rprintf("Caught error\n" );
+        Rcerr << "error diagnostic '" << ex.what() << "'" << endl;
+        //Rcerr << ex << endl;
+        
+        forward_exception_to_r( ex );
+    } catch(...) { 
+    	::Rf_error( "c++ exception (unknown reason)" );
+    }
+
+    if ( seql_learner->verbosity > 1 ) {
+        Rcout << "parameters loaded\n";
+        Rcout.flush();
+    }
+    // Rprintf("Checking Labeling Vector\n" );
+
+
+    try {
+    	//    	Rprintf("Adding Banned Words\n" );
+    	// add banned words
+    	// if ( ! Rf_isNull(banned) ) {
+
+			for ( int i = 0; i < bannedV.size(); i++ ) {
+				std::string stt = std::string(bannedV[i]);
+				seql_learner->add_banned_word( stt );
+			}
+		// }
+
+    	// Step 2: Get the corpus vector
+    	//    	Rprintf("Labeling vector is %d long\n", labelV.size() );
+    	//    	Rprintf("Corpus is %d long\n", corpusV.size() );
+
+    	// did we get a file name or the actual text from the corpus?
+    	if ( corpusV.size() == 1 && labelV.size() != 1 ) {
+
+    		bool res = seql_learner->read_in_data( std::string(corpusV[0]).c_str(), labelV );
+    		if ( !res ) {
+    			//Rcerr << "Failing to grab " << std::string(corpusV[0]) << endl;
+    			::Rf_error( "Failed to read in file data (file not found?)" );
+    		} else {
+    			if ( seql_learner->verbosity > 0 ) {
+    				Rcout << "Finished reading in from text file" << endl;
+    			}
+    		}
+    	} else {
+			for ( int i = 0; i < corpusV.size(); i++ ) {
+				std::string stt = std::string(corpusV[i]);
+				seql_learner->add_document( stt, labelV[i] );
+			}
+	   	}
+		seql_learner->finish_initializing();
+
+
+    } catch( std::exception &ex ) {		// or use END_RCPP macro
+    	forward_exception_to_r( ex );
+    } catch(...) {
+    	::Rf_error( "c++ exception (unknown reason)" );
+    }
+	
+	// return the external pointer to the R side
+	return Rcpp::XPtr<SeqLearner>( seql_learner, true );
+}
+
+
+Rcpp::XPtr<SeqLearner> update_banned(Rcpp::XPtr<SeqLearner> seql_learner, Rcpp::StringVector bannedV )
+{
+    if ( seql_learner->verbosity >= 1 ) {
+        Rcout << "Updating ban list\n";
+        Rcout.flush();
+    }
+    
+    try {
+        seql_learner->banned_words.clear();
+        
+        // add banned words
+        for ( int i = 0; i < bannedV.size(); i++ ) {
+            std::string stt = std::string(bannedV[i]);
+            seql_learner->add_banned_word( stt );
+        }
+        
+    } catch( std::exception &ex ) {		// or use END_RCPP macro
+        forward_exception_to_r( ex );
+    } catch(...) {
+        ::Rf_error( "c++ exception (unknown reason)" );
+    }
+    
+    // return the external pointer to the R side
+    return Rcpp::XPtr<SeqLearner>( seql_learner, true );
+}
+
+
+
+
+// This file was generated by Rcpp::compileAttributes
+// Generator token: 10BE3573-1514-4C36-9D1C-5A225CD40393
+
+
+// update_banned
+Rcpp::XPtr<SeqLearner> update_banned(Rcpp::XPtr<SeqLearner> seql_learner, Rcpp::StringVector bannedV);
+RcppExport SEXP textreg_update_banned(SEXP seql_learnerSEXP, SEXP bannedVSEXP) {
+    BEGIN_RCPP
+    SEXP __sexp_result;
+    {
+        Rcpp::RNGScope __rngScope;
+        Rcpp::traits::input_parameter< Rcpp::XPtr<SeqLearner> >::type seql_learner(seql_learnerSEXP );
+        Rcpp::traits::input_parameter< Rcpp::StringVector >::type bannedV(bannedVSEXP );
+        Rcpp::XPtr<SeqLearner> __result = update_banned(seql_learner, bannedV);
+        PROTECT(__sexp_result = Rcpp::wrap(__result));
+    }
+    UNPROTECT(1);
+    return __sexp_result;
+    END_RCPP
+}
+
+
+
+
+
+// This part of the file was generated by Rcpp::compileAttributes
+// Generator token: 10BE3573-1514-4C36-9D1C-5A225CD40393
+
+
+// textreg
+SEXP textreg(Rcpp::XPtr<SeqLearner> seql_learner, Rcpp::List rparam);
+RcppExport SEXP textreg_textreg(SEXP seql_learnerSEXP, SEXP rparamSEXP) {
+BEGIN_RCPP
+    SEXP __sexp_result;
+    {
+        Rcpp::RNGScope __rngScope;
+        Rcpp::traits::input_parameter< Rcpp::XPtr<SeqLearner> >::type seql_learner(seql_learnerSEXP );
+        Rcpp::traits::input_parameter< Rcpp::List >::type rparam(rparamSEXP );
+        SEXP __result = textreg(seql_learner, rparam);
+        PROTECT(__sexp_result = Rcpp::wrap(__result));
+    }
+    UNPROTECT(1);
+    return __sexp_result;
+END_RCPP
+}
+
+
+// build_corpus
+Rcpp::XPtr<SeqLearner> build_corpus(Rcpp::StringVector corpusV, Rcpp::NumericVector labelV, Rcpp::StringVector bannedV, Rcpp::List rparam);
+RcppExport SEXP textreg_build_corpus(SEXP corpusVSEXP, SEXP labelVSEXP, SEXP bannedVSEXP, SEXP rparamSEXP) {
+BEGIN_RCPP
+    SEXP __sexp_result;
+    {
+        Rcpp::RNGScope __rngScope;
+        Rcpp::traits::input_parameter< Rcpp::StringVector >::type corpusV(corpusVSEXP );
+        Rcpp::traits::input_parameter< Rcpp::NumericVector >::type labelV(labelVSEXP );
+        Rcpp::traits::input_parameter< Rcpp::StringVector >::type bannedV(bannedVSEXP );
+        Rcpp::traits::input_parameter< Rcpp::List >::type rparam(rparamSEXP );
+        Rcpp::XPtr<SeqLearner> __result = build_corpus(corpusV, labelV, bannedV, rparam);
+        PROTECT(__sexp_result = Rcpp::wrap(__result));
+    }
+    UNPROTECT(1);
+    return __sexp_result;
+END_RCPP
+}

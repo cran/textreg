@@ -4,7 +4,7 @@
 \alias{textreg-package}
 \title{Sparse regression package for text that allows for multiple word phrases.}
 \description{
-Built on Ifrim's work, but allowing for regularization of phrases, this
+Built on Georgiana Ifrim's work, but allowing for regularization of phrases, this
 package does sparse regression using greedy coordinate descent.
 In a nutshell, the textreg package allows for regressing a vector of +1/-1 labels onto raw text.
 The textreg package takes care of converting the text to all of the possible related features, allowing
@@ -13,15 +13,21 @@ you to think of the more organic statement of regressing onto ``text'' in some b
 \details{
 Implementation-wise, it is a wrapper for a modified version of the C++ code written by Georgiana Ifrim to do this regression.
 It is also designed to (somewhat) integrate with the tm package, a commonly used R package for dealing with text.
+
 One warning: this package uses tm, but does need to generate vectors of character strings to pass to the textreg call, which can be quite expensive.
 You can also pass a filename to the textreg call instead, which allows one to avoid loading a large corpus into memory and then copying it over.
+You can use a prior build.corpus command before textreg to mitigate this cost, but it is an imperfect method.
 
 The n-gram package is documented, but it is research code, meaning gaps and errors are possible; the author would appreciate notification of anything that is out of order.
 
 The primary method in this package is the regression call textreg(). This method takes a corpus and a labeling vector and returns a textreg.result
 object that contains the final regression result along with diagnostic information that can be of use.
 
-Start by reading the documentation for this textreg call, as well as the ``bathtub'' vignette.
+Start by reading the ``bathtub'' vignette, which walks through most of the functionality of this package.
+
+Special thanks and acknowledgements to Pavel Logacev, who found some subtle bugs on the windows platform and gave excellent advice in general.
+Also thanks to Kevin Wu, who wrote earlier versions of the stemming and cross-validation code.  And Georgiana Ifrim, of course, for the earlier
+version of the C++ code.
 }
 \references{
 Ifrim, G., Bakir, G., & Weikum, G. (2008). Fast logistic regression for text categorization with variable-length n-grams. 14th ACM SIGKDD International Conference on Knowledge Discovery and Data Mining, 354-362.
