@@ -15,6 +15,9 @@
  */
 
 #include <Rcpp.h>
+#if defined(assert)
+  #undef assert
+#endif
 
 #include <cfloat>
 #include <iostream>
@@ -318,11 +321,11 @@ public:
 
 	Rcpp::List to_Rcpp_list() {
 		Rcpp::NumericVector suppV(doc_support.size());
-		for ( int i = 0; i < doc_support.size(); i++ ) {
+		for (unsigned int i = 0; i < doc_support.size(); i++ ) {
 			suppV[i] = doc_support[i];
 		}
 		Rcpp::NumericVector weightV(weight.size());
-				for ( int i = 0; i < weight.size(); i++ ) {
+				for (unsigned int i = 0; i < weight.size(); i++ ) {
 					weightV[i] = weight[i];
 		}
 
@@ -746,7 +749,7 @@ public:
 		Rcpp::StringVector ngramsV( history_steps.size() );
 
 		int cntr = 0;
-		for( int i = 0; i < history_steps.size(); i++ ) {
+		for(unsigned int i = 0; i < history_steps.size(); i++ ) {
 			stepsV[i] = history_steps[i];
 			ngramsV[i] = history_ngrams[i];
 		}
@@ -953,8 +956,8 @@ public:
     void finish_initializing( int maxitr ) {
 		num_pos = 0;
         num_neg = 0;
-        int num_lab = y.size();
-        for ( int i = 0; i < y.size(); i++ ) {
+        unsigned int num_lab = y.size();
+        for (unsigned int i = 0; i < y.size(); i++ ) {
             if (y[i] == 1) num_pos++ ;
             if (y[i] == -1) num_neg++ ;
         }
@@ -2594,7 +2597,7 @@ public:
         }
         int n = y.size();
        
-        for ( int sc_itr = 0; sc_itr < num_scrambles + 1; sc_itr++ ) {
+        for (unsigned int sc_itr = 0; sc_itr < num_scrambles + 1; sc_itr++ ) {
             if ( verbosity > 1 ) {
                 Rcout << "\nBeginning find_C iteration\n";
                 Rcout.flush();

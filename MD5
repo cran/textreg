@@ -1,4 +1,4 @@
-81c27054908c2940aeada840da48fc2e *DESCRIPTION
+82d43213b4f78f956b656d8441983b07 *DESCRIPTION
 0dfd9a2e8eacc0759f2ebdc6e065e89d *NAMESPACE
 44d0596ad81a025d77a8d53caf189977 *R/clean_text.R
 ea302628abfde9fb4482630a231ed958 *R/cross_validation_code.R
@@ -69,4 +69,4 @@ a67cd06d391617e921e621c6e27f945c *man/textreg.Rd
 c21ad7b8c2978f7bae24963ab4dda994 *man/tm_gregexpr.Rd
 b3f86c20b81b51f5162874977d38784d *src/Makevars
 73505498722ad4b07b0ddb3067e92523 *src/Makevars.win
-e8faf43ebbfaea68ecc5369b5ca996a5 *src/textreg.cpp
+4270d1b29794e8c7339fd5676022afb2 *src/textreg.cpp
