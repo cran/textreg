@@ -77,9 +77,7 @@ You get a summary by calling the \verb|textreg| function.
 It has a lot of parameters, but let's ignore them for now.
 
 <<DoRegression, echo=TRUE, out.width="0.5\\textwidth">>=
-corpus = build.corpus(bathtub, mth.lab, banwords, C=4, gap=1, min.support = 1, 
-                      verbosity=0, convergence.threshold=0.00001, maxIter=100 )
-rs = textreg(corpus, C=4, gap=1, min.support = 1, 
+rs = textreg(bathtub, mth.lab, C=4, gap=1, min.support = 1, 
             verbosity=0, convergence.threshold=0.00001, maxIter=100 )
 rs
 @
@@ -116,15 +114,13 @@ There are several knobs that you can twiddle to change the summary you get from 
 
 Here are some different models we might fit:
 <<Play.with.parameters, echo=TRUE>>=
-corpus = build.corpus( bathtub, mth.lab, banwords, C = 5, gap=1, min.support = 10, 
-                      verbosity=0, convergence.threshold=0.00001, maxIter=100 )
-rs5 = textreg( corpus, C = 5, gap=1, min.support = 1, 
+rs5 = textreg( bathtub, mth.lab, banwords, C = 5, gap=1, min.support = 1, 
             verbosity=0, convergence.threshold=0.00001, maxIter=100 )
-rsLq5 = textreg( corpus, C = 3, Lq=5, gap=1, min.support = 1, 
+rsLq5 = textreg( bathtub, mth.lab, banwords, C = 3, Lq=5, gap=1, min.support = 1, 
                verbosity=0, convergence.threshold=0.00001, maxIter=100 )
-rsMinSup10 = textreg( corpus, C = 3, Lq=5, gap=1, min.support = 10,
+rsMinSup10 = textreg( bathtub, mth.lab, banwords, C = 3, Lq=5, gap=1, min.support = 10,
                     verbosity=0, positive.only=TRUE, convergence.threshold=0.00001, maxIter=100 )
-rsMinPat2 = textreg( corpus, C = 3, Lq=5, gap=1, min.support = 1, 
+rsMinPat2 = textreg( bathtub, mth.lab, banwords, C = 3, Lq=5, gap=1, min.support = 1, 
                    min.pattern=2, verbosity=0, convergence.threshold=0.00001, maxIter=100 )
 @
 
@@ -154,9 +150,7 @@ Better choices are possible.
 One way is to select one via obtaining a permutation distribution on this parameter under a null of no connection between text and labeling.
 Do so as follows:
 <<FindC, echo=TRUE>>=
-corpus = build.corpus( bathtub, mth.lab, banwords, gap=1, min.support = 5, 
-                       verbosity=0, convergence.threshold=0.00001  )
-Cs = find.threshold.C( corpus, R = 100, gap=1, min.support = 5, 
+Cs = find.threshold.C( bathtub, mth.lab, banwords, R = 100, gap=1, min.support = 5, 
                        verbosity=0, convergence.threshold=0.00001 )
 
 Cs[1]
@@ -178,8 +172,7 @@ You can drop documents from the regression by setting the corresponding label to
 mth.lab.lit = mth.lab
 mth.lab.lit[20:length(mth.lab)] = 0
 
-corpus = build.corpus( bathtub, mth.lab.lit, banwords, C = 4, gap=1, min.support = 1, verbosity=0 )
-rs.lit = textreg( corpus, C = 4, gap=1, min.support = 1, verbosity=0 )
+rs.lit = textreg( bathtub, mth.lab.lit, banwords, C = 4, gap=1, min.support = 1, verbosity=0 )
 rs.lit
 rs.lit$labeling
 @
@@ -302,10 +295,8 @@ Also note the \verb|lab=rs$labeling| line---this will give you the final labelin
 \subsection{Out of Sample Prediction}
 Here we split the sample and train on one part and test on the other.
 <<Outofsample, echo=TRUE, out.width="0.5\\textwidth">>=
-  smp = sample( length(bathtub), length(bathtub)*0.5 )
-  corpus = build.corpus( bathtub[smp], mth.lab[smp], C = 3, gap=1, min.support = 5, 
-              verbosity=0, convergence.threshold=0.00001, maxIter=100 )
-	rs = textreg( corpus, C = 3, gap=1, min.support = 5, 
+    smp = sample( length(bathtub), length(bathtub)*0.5 )
+	rs = textreg(  bathtub[smp], mth.lab[smp], C = 3, gap=1, min.support = 5, 
               verbosity=0, convergence.threshold=0.00001, maxIter=100 )
 	rs
 	train.pred = predict( rs )
@@ -353,8 +344,7 @@ For the textreg package, the ``+'' are automatically turned into wildcards when 
 We need updated banwords to account for the stemming, but other than that, everything is the same; 
 we are doing business as usual on the transformed text:
 <<CleanAndStem2, echo=TRUE>>=
-  corpus = build.corpus( bc.stem, mth.lab, c("chlorid+", "methylen+"), C=4, verbosity=0 )
-  res.stm = textreg( corpus, C=4, verbosity=0 )
+  res.stm = textreg(  bc.stem, mth.lab, c("chlorid+", "methylen+"), C=4, verbosity=0 )
   res.stm
 
   sample.fragments( "that contain+", res.stm$labeling, bc.stem, 5, char.before=10 )

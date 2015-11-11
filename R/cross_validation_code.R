@@ -15,11 +15,11 @@
 #' @param length.out number of values of C to examine from 0 to max_C.
 #' @param max_C upper bound for tuning parameter; if NULL, sets max_C to threshold C 
 #' @param verbose Print progress
-#' @param ... parameters from the original textreg() function
+#' @param ... parameters to be passed to the original textreg() function
 #' @import tm
 #' @export
 #' @seealso make.CV.chart
-find.CV.C <-function( corpus, labeling, banned, K, length.out, max_C=NULL, verbose=FALSE, ... ) {
+find.CV.C <-function( corpus, labeling, banned, K=5, length.out=10, max_C=NULL, verbose=FALSE, ... ) {
 	
 	## Cut up a sequence into random chunks for CV
 	chunk <- function(x,n) split(x, factor(sample(x%%n)))
@@ -33,10 +33,14 @@ find.CV.C <-function( corpus, labeling, banned, K, length.out, max_C=NULL, verbo
 	  # return(list);
 	# }
 
-	
-  
 	if (is.null(max_C)) {
-		Cs<-find.threshold.C(corpus, labeling, banned, R=0, ... )
+	    dots = list(...)
+	    dots$R = 0
+	    dots$maxIter = NULL
+	    dots$corpus = corpus
+	    dots$labeling = labeling
+	    dots$banned = banned
+	    Cs<- do.call( find.threshold.C, dots )
      	max_C<-Cs[1]
     }
     C=0
@@ -97,9 +101,12 @@ find.CV.C <-function( corpus, labeling, banned, K, length.out, max_C=NULL, verbo
 
 #' Plot K-fold cross validation curves
 #' 
-#' Plot the test error with SE bars for the cross validation.  Also calculate the spot that is 1 SE above the minimum.
-#' Fits the points with loess lines so few points needed in evaluating the function.  All a bit ad hoc and worthy
-#' of improvement.
+#' Make a loess curve with loess() to predict the test error for different values of C by interpolating the passed evaluated
+#' points on the tbl dataframe.
+#' 
+#' Then plot the test error with SE bars for the cross validation.  Also calculate the spot that is 1 SE above the minimum.
+#' Fits the points with loess lines so, in principle, few actually evaluated points are needed in evaluating the function.  
+#' All a bit ad hoc and worthy of improvement.
 #' 
 #' Not particularly well implemented.
 #'
@@ -108,27 +115,38 @@ find.CV.C <-function( corpus, labeling, banned, K, length.out, max_C=NULL, verbo
 #' @param tbl Table from find.CV.C
 #' @param plot TRUE means plot the chart.  False means do not, but return the optimal C
 #' @param ... Parameters to the plot function
+#' @return invisible list of the minimum C value and the estimated test error for both the minimum
+#'    and the predicted C corresponding to 1 SE above the minimum estimate.
 #' @seealso find.CV.C
 make.CV.chart = function( tbl, plot=TRUE, ... ) {
 
-	low = loess(  test.err ~ Cs, tbl, weights=tbl$std_err )
-	low
+	lo.curve = loess(  test.err ~ Cs, tbl, weights=tbl$std_err )
+	lo.curve
 	
 	f = function(x,model) {
 		predict( model, data.frame(Cs=x) )
 	}
 	rng = c( min(tbl$Cs), max(tbl$Cs) )
-	peak = optimize( f, rng, maximum=FALSE, model=low )
 	
+	# 'peak' is the estimated C corresponding to the minimum test error.
+	peak = optimize( f, rng, maximum=FALSE, model=lo.curve )
+	
+	# Now find the value of C and estimated test error 1 SE
+	# above the estimated minimum
 	tbl$err.up = tbl$test.err + tbl$std_err
-	low.up = loess( err.up ~ Cs, tbl, weights=tbl$std_err )
-	cut.line = predict( low.up, peak$minimum )
+	lo.curve.up = loess( err.up ~ Cs, tbl, weights=tbl$std_err )
+	
+	# What should 1 SE above the minimum error be? (By estimating a loess
+	# curve through the estimated error + 1 SE function itself.)
+	cut.line = predict( lo.curve.up, peak$minimum )
+	
+	# Find the spot closest to giving 1 SE above the estimated minimum error
 	f2 = function( x, model, cut) {
 			abs( predict( model, data.frame(Cs=x) ) - cut )
 	}
 	rng2 = c( peak$minimum, max(tbl$Cs) )
 	ct = optimize( f2, rng2,
-		maximum=FALSE, model=low, cut=cut.line )
+		maximum=FALSE, model=lo.curve, cut=cut.line )
 
 	
 	if ( plot ) {
@@ -139,18 +157,18 @@ make.CV.chart = function( tbl, plot=TRUE, ... ) {
 		arrows(tbl$Cs,tbl$test.err+tbl$std_err,
 	       tbl$Cs, tbl$test.err-tbl$std_err,
 	       angle=90, code=3, length=0.05, col="grey")
-		#lines( low, col="red" )
+		#lines( lo.curve, col="red" )
 		sq = seq( min(tbl$Cs), max(tbl$Cs), length.out=200 )
-		pd = predict( low, sq )
+		pd = predict( lo.curve, sq )
 		lines( sq, pd, col="red" )
 		points( peak$minimum, peak$objective, pch=19, col="red" )		
 		abline( h=cut.line, col="blue", lty=2 )
-		lines( tbl$test.err ~ tbl$Cs, 
-			ylim=range(tbl$test.err+tbl$std_err, 
-					tbl$test.err-tbl$std_err), type="b", pch=19 )	
+		lines( tbl$test.err ~ tbl$Cs, type="b", pch=19 )	
 		abline( v=ct$minimum, col="blue", lty=3 )
 	}
-	invisible( list( minimum=ct$minimum, test.err=predict( low, ct$minimum )  ) )
+	
+	invisible( list( minimum=peak$minimum, test.err=peak$objective,
+	                 oneSE=ct$minimum, oneSE.test.err=predict( lo.curve, ct$minimum )  ) )
 }
 
 

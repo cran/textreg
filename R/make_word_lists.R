@@ -18,6 +18,18 @@ annotate.table = function( a, dat ) {
 }
 
 
+
+# Utility function: Make small dataframe for making word lists
+textreg.to.df = function( textreg.res, RunID = 1 ) {   
+    data.frame( RunID = RunID, 
+                word = textreg.res$model$ngram,
+                weight = textreg.res$model$beta / textreg.res$model$Z )
+}
+
+
+
+
+
 #' Collate multiple regression runs.
 #'
 #' This method makes a table of several regression runs side by side.
@@ -40,13 +52,104 @@ annotate.table = function( a, dat ) {
 #' @return If annotate = true, a dataframe with each column corresponding to an textreg.result 
 #'   object (and possibly extra columns about phrases).  Otherwise a matrix of the word scores.
 #' @export
-#' @param result.list  List of textreg.result objects.
+#' @param result.list  List of mix of textreg.result objects and dataframes with two columns of
+#'        "word" and "weight".  (The latter is for merging lists from other regression packages.)
 #' @param model.names Names of the textreg.result objects
 #' @param M maximum number of words to keep
 #' @param topic String A name for the topic
 #' @param method Different ways to sort the phrases.  'word' means make a list of words.
 #' @param annotate  Add summary statistics to table such as phrase counts, etc.
-make.list.table = function( result.list, model.names = names(result.list), M = 100, topic="Summary Collection",
+make.list.table = function (result.list, model.names = names(result.list), M = 100, 
+                            topic = "Summary Collection", method = c("rank", "weight", "count", "word"),
+                            annotate=TRUE) 
+{
+    if (!is.list(result.list)) {
+        stop("Need a list of result objects")
+    }
+    stopifnot(length(result.list) > 1)
+    df.list = result.list
+    for ( i in seq_along(df.list) ) {
+        if ( is.textreg.result( df.list[[i]] ) ) {
+            df.list[[i]] = textreg.to.df( df.list[[i]] )
+        } 
+        stopifnot( nrow(df.list[[i]] ) > 0 )
+        df.list[[i]]$RunID = i
+    }
+    if (!requireNamespace("plyr", quietly = TRUE)) {
+        stop( "need to install plyr package to run make.list.table or other list generation methods" )
+    }
+    dat = plyr::rbind.fill( df.list )
+    
+    Xs = unique(dat$word)
+    first = tapply(dat$RunID, dat$word, min)
+    first = tapply(dat$RunID, dat$word, min)
+    method = match.arg(method)
+    if (method == "rank") {
+        dat$rnk = dat$weight
+        for (i in unique(dat$RunID)) {
+            runi = dat$RunID == i
+            dat$rnk[runi] = rank(abs(dat$weight[runi]))
+        }
+        a = tapply(dat$rnk * sign(dat$weight), list(dat$word, 
+                                                    dat$RunID), sum)
+    }
+    else if (method == "weight" || method == "word") {
+        a = tapply(abs(dat$weight), list(dat$word, dat$RunID), 
+                   sum)
+    }
+    else if (method == "count") {
+        a = tapply(sign(dat$weight), list(dat$word, dat$RunID), 
+                   length)
+    }
+    else {
+        stop(gettextf("Method %s not understood as valid mode in make.list.table", 
+                      method))
+    }
+    stopifnot(all(names(first) == rownames(a)))
+    keeps = rownames(a) != "*intercept*"
+    
+    if ( sum( keeps ) == 1 ) {
+        names = rownames(a)
+        b = matrix( a[keeps,], nrow=1 )
+        rownames(b) = names[keeps]
+    } else {
+        a = a[keeps, ]
+
+        # sort the list
+        a[is.na(a)] = 0
+        b2 = as.list(data.frame(abs(a)))
+        ord = do.call(order, c(b2, decreasing = TRUE))
+        b = a[ord, ]
+        b[b == 0] = NA
+    }
+    
+    if (method == "word") {
+        words = rownames(b)
+        b = matrix(as.character(b), nrow = nrow(b))
+        for (i in 1:ncol(b)) {
+            b[, i] = ifelse(is.na(b[, i]), "", words)
+        }
+        rownames(b) = words
+    }
+    colnames(b) = model.names
+
+    if ( annotate ) {
+        ngo = sapply( result.list, is.textreg.result )
+        if ( sum( ngo ) > 0 ) {
+            b = annotate.table( b, result.list[ngo] )
+        }
+        
+        attr(b, "num.models" ) = length( result.list )	
+    }
+    
+    attr(b, "topic" ) = topic
+    attr(b, "method" ) = method
+    #class( b ) = c( class(b), "list.table" )
+    b
+}
+
+
+old.make.list.table = function( result.list, model.names = names(result.list), M = 100, topic="Summary Collection",
 				method=c("rank","weight","count","word"),
 				annotate=TRUE ) {
 	
@@ -157,13 +260,19 @@ make.list.table = function( result.list, model.names = names(result.list), M = 1
 #' @param dates Dates to put on bottom
 #' @param main Main title
 #' @param xlab Label for x-axis
+#' @param xaxt Plot an x-axis (see par)
 #' @param mar Margin of plot (see par)
-#' @param ... Extra arguments for image() call
+#' @param color.breaks  Cut-points (like on a histogram) defining the different color levels.
+#' @param color.ramp List of colors to use from lowest value (potentially negative weights) to highest.  If both color.breaks and color.ramp passed, color.breaks is list one longer than color.ramp. 
+#' @param ... Extra arguments for the core image() call that plots the word weights.
 list.table.chart = function( model.list, M=100, linespace=4, ytick=NULL, 
 		dates=NULL, 
 		main = paste( "Word Appearance for ", attr(model.list,"topic"), "\n(Method: ", attr(model.list,"method"),")", sep=""),
 		xlab="Model",
 		mar = c(3,5,2.5,0.1),
+		xaxt="y",
+		color.breaks = NULL,
+		color.ramp = NULL,
 		... ) {
 	
 
@@ -176,45 +285,56 @@ list.table.chart = function( model.list, M=100, linespace=4, ytick=NULL,
 		b = model.list
 	}
 
-	b = b[ nrow(b):1, ]
+	# flip so it plots first row at top
+    b = b[ nrow(b):1, ]
 	
-	bm = rank( apply(abs(b), 1, max, na.rm=TRUE ), na.last=FALSE )
-	bm2 = rank( apply(abs(b), 1, mean, na.rm=TRUE ), na.last=FALSE )
-	bmm = pmax( bm, bm2 )
-	b[b==0] = NA
+	# heuristic for grabbing "best" words if only plotting
+    # M words total
+    if ( nrow( b ) > M ) {
+        bm = rank( apply(abs(b), 1, max, na.rm=TRUE ), na.last=FALSE )
+	    bm2 = rank( apply(abs(b), 1, mean, na.rm=TRUE ), na.last=FALSE )
+	    bmm = pmax( bm, bm2 )
+	    b[b==0] = NA
 	
-	# take only M words deemed best.
-	if ( length(bmm) > M ) {
-		b = b[ bmm >= quantile( bmm, 1-M/length(bmm)), ]
-	}
-
-	#par( mar=c(2.1, 7.1, 2.1, 2.1 ) )
-	
-	#layout(matrix(data=c(1,2), nrow=1, ncol=2), widths=c(5,1), heights=c(1,1))
-
-	 max = max(abs(b), na.rm=TRUE)
-
-	 if ( TRUE ) { # always do color
-		 sq =  rev( seq( 0.0,1.0, length=12 ) )
-		 ColorRamp <- rgb( sq,  # Red
-	                   rev(sq),  # Green
-	                   0 )  # Blue
-	
-	 	min = -1 * max
-	 } else {
-		 sq =  rev( seq( 0.0,0.8, length=12 ) )
-		 ColorRamp <- rgb( sq,  # Red
-	                   sq,  # Green
-	                   sq )  # Blue
-	 	min = 0
+	    # take only M words deemed best.
+	    b = b[ bmm >= quantile( bmm, 1-M/length(bmm)), ]
+    }
+    
+	 # maximum weight to plot
+     max = max(abs(b), na.rm=TRUE)
+     if ( min( b, na.rm=TRUE ) < 0 ) {
+         min = -max
+     } else {
+         min = 0
+     }
+     
+     # make breakpoints in weights if needed.
+     if ( is.null( color.breaks ) ) {
+        if ( is.null( color.ramp ) ) {
+            color.breaks <- seq(-max, max, length.out=11 )
+        } else {
+            color.breaks <- seq(-max, max, length.out=length(color.ramp) + 1)
+        }
+     } else {
+         if ( !any( 0 == color.breaks ) ) {
+             warning( "No cut-point at 0 for color.breaks.  Hard to seperate negative and positive words." )
+         }
+     }
+     
+     if ( is.null( color.ramp ) ) { # always do color
+		 sw = which.min( abs( color.breaks ) )
+		 Ln = length( color.breaks ) - 1
+		 reds = greens = rep( 0, Ln )
+		 
+		 if ( sw > 1 ) {
+		     reds[1:(sw-1)] = seq( 1.0, 0.5, length=(sw-1) )
+         }
+		 if ( sw < Ln ) {
+		     greens[sw:Ln] = seq( 0.5, 1.0, length=1+Ln-sw )
+		 }
+         color.ramp <- rgb( reds, greens, 0 ) 
 	 }
-	 ColorLevels <- seq(min, max, length=length(ColorRamp))
-	
-	 # Reverse Y axis
-	 # reverse <- nrow(z) : 1
-	 # yLabels <- yLabels[reverse]
-	 # x <- x[reverse,]
-	
+
 	 # Plot Data Map
 	 par(mar = mar)
 	
@@ -223,21 +343,29 @@ list.table.chart = function( model.list, M=100, linespace=4, ytick=NULL,
 			t(b), 
 			xlab=xlab, ylab="", 
 			xaxt="n", yaxt="n", bty="n",
-			col=ColorRamp,
+			col=color.ramp,
+			breaks=color.breaks,
 			main=main, ... )
 
+	# horizontal lines
 	for ( i in seq(1,nrow(b), by=linespace ) ) {
 		abline( h=i, lty=3 )
 	}
-	ticks = seq(1,ncol(b),by=1)
-	axis(BELOW<-1, at=ticks, labels=colnames(b), 
-					cex.axis=0.7, las = 2)
-	if ( !is.null( dates ) ) {
-		ticks = seq(1,ncol(b)+1,by=1)
-		axis(BELOW<-1, at=ticks - 0.5, labels=dates, col="grey", 
-					cex.axis=0.5, las = 2, tick=FALSE)
+	
+	# tickmarks along bottom
+	if ( xaxt=="y" ) {
+	    ticks = seq(1,ncol(b),by=1)
+    	axis(BELOW<-1, at=ticks, labels=colnames(b), 
+    					cex.axis=0.7, las = 2)
+    	if ( !is.null( dates ) ) {
+    		ticks = seq(1,ncol(b)+1,by=1)
+    		axis(BELOW<-1, at=ticks - 0.5, labels=dates, col="grey", 
+    					cex.axis=0.5, las = 2, tick=FALSE)
+    	}
 	}
- 	axis(LEFT <-2, at=1:nrow(b), labels=rownames(b),
+	
+	# words along left
+	axis(LEFT <-2, at=1:nrow(b), labels=rownames(b),
  						las= HORIZONTAL<-1,
  						cex.axis=0.5)
 	

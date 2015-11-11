@@ -111,7 +111,8 @@ make.count.table = function( phrases, labeling, corpus ) {
 	#	names(labeling) = unlist( meta( corpus, type="local", "ID" ) )
 	
 	cnts = sapply( phrases, function(x) { 
-		x = gsub( "*", "\\w*", x, fixed=TRUE )
+		#x = gsub( "*", "\\w*", x, fixed=TRUE )
+	    x = make_search_phrases( x )
 		#cat( "searching '", x, "'\n", sep="" )
 		#pos = tm_index( mcorp, x )
 		pos = tm_index(mcorp, FUN = function(doc) any(grep(x, content(doc))))

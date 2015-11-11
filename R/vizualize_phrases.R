@@ -187,7 +187,7 @@ make.phrase.correlation.chart = function( result, count=FALSE, num.groups=5, use
 	#gps = c( 1,gps )
 
 	if ( use.corrplot ) {
- 		if (requireNamespace("corrplot", quietly = TRUE)) {
+ 		if (!requireNamespace("corrplot", quietly = TRUE)) {
 			stop( "need to install corrplot to use the use.corrplot=TRUE option" )
 		}
 

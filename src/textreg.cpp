@@ -196,7 +196,7 @@ public:
 	// figure out which doc ids are the support of this space, and also how
 	// many times the ngram is found in each doc in the support.
 	// Also compute the normalizing constant Z for this feature.
-	void calc_support_weights( LONG_DOUBLE Lp, bool binary_features ) {
+	void calc_support_weights( LONG_DOUBLE Lp, bool binary_features, bool no_regularization ) {
         my_assert( !shrunk );
         my_assert( !converted );
 		int rcntr = 0;
@@ -230,7 +230,9 @@ public:
 		}
 		// now re-weight based on total support (this is L2 normalization)
 		Z = 0.0;
-		if ( Lp >= LP_INFINITY ) {
+        if ( no_regularization ) {
+            Z = 1.0;
+        } else if ( Lp >= LP_INFINITY ) {
 			for ( unsigned int i = 0; i < weight.size(); i++ ) {
 				if ( weight[i] > Z ) {
 					Z = weight[i];
@@ -490,6 +492,9 @@ public:
     // true means don't use counts, just use existance of feature in document.
     bool binary_features;
 
+    // do not regularize the features
+    bool no_regularization;
+    
 	// The sum of squared values of all non-zero beta_j.
 	LONG_DOUBLE sum_squared_betas;
     
@@ -650,6 +655,7 @@ public:
         << "\n\tC (regularizer value): " << C
         << "\n\tLp / Lq: " << Lq << " / " << Lp // switched on purpose.  Legacy code.
         << "\n\tb (binary only): " << binary_features
+        << "\n\tn (no regularization): " << no_regularization
         << "\n\tp (positive only): " << pos_only
         << "\n\talpha (weight on l1_vs_l2_regularizer): " << alpha  << "\n\tverbosity: " << verbosity
         << "\n\tFile Mode: " << FILE_INPUT_MODE << " (single file = " << SINGLE_FILE << ")"<< endl;
@@ -993,12 +999,12 @@ public:
     void finish_initializing() {
 		num_pos = 0;
         num_neg = 0;
-        unsigned int num_lab = y.size();
+        my_assert( y.size() == corpus.size() ); // "label vec match corp size",
+
         for ( unsigned int i = 0; i < y.size(); i++ ) {
             if (y[i] == 1) num_pos++ ;
             if (y[i] == -1) num_neg++ ;
         }
-        my_assert( num_lab == corpus.size() ); // "label vec match corp size",
 
         if ( verbosity > 0 ) {
         	Rcout << "There are " << banned_words.size() << " banned words\n";
@@ -1468,7 +1474,7 @@ public:
 			if ( verbosity > 3 ) {
 				Rcout << "Converting space and calculating support and weights for " << child << "\n";
 			}
-			child->calc_support_weights( Lp, binary_features );
+			child->calc_support_weights( Lp, binary_features, no_regularization );
 		}
         
 		if ( child->total_support < minsup ) {
@@ -2100,7 +2106,7 @@ public:
 		for (std::map <string, space_t>::iterator it = unigrams.begin (); it != unigrams.end(); ) {
 			
             if ( !it->second.isConverted() ) {
-                it->second.calc_support_weights( Lp, binary_features );
+                it->second.calc_support_weights( Lp, binary_features, no_regularization );
             }
 			if ( it->second.support() < minsup ) {
 				//Rcout << "erasing unigram " << it->second.ne << endl;
@@ -2790,6 +2796,7 @@ SEXP textreg(Rcpp::XPtr<SeqLearner> seql_learner, Rcpp::List rparam) {
         seql_learner->positive_weight = Rcpp::as<int>(rparam["positive.weight"] );
 
         seql_learner->binary_features = Rcpp::as<int>(rparam["binary.features"] );
+        seql_learner->no_regularization = Rcpp::as<int>(rparam["no.regularization"] );
         maxiter       = Rcpp::as<int>(rparam["maxIter"]);
 
         find_C       = Rcpp::as<int>(rparam["findC"]);
@@ -2837,6 +2844,7 @@ SEXP textreg(Rcpp::XPtr<SeqLearner> seql_learner, Rcpp::List rparam) {
             notes[ "n" ] = (unsigned int)seql_learner->corpus.size();
             notes[ "Lp" ] = seql_learner->Lp;
             notes[ "binary.features" ] = seql_learner->binary_features;
+            notes[ "no.regularization"] = seql_learner->no_regularization;
             notes[ "positivr.weight" ] = seql_learner->positive_weight;
 
             if ( seql_learner->verbosity > 1 ) {

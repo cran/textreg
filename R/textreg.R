@@ -66,6 +66,10 @@ cpp_build.corpus <- function(corpus, labeling, banned=c(), params ) {
     stop("Labeling argument is empty.")
   }
   
+  if ( !is.null( params$no.regularization ) && params$no.regularization == 1 ) {
+      params["Lq"] = 10  # infinity norm to avoid scaling of gradient in C++ code.
+  }
+  
   if ( is.null(banned) ) {
     banned = vector(mode="character")
   }
@@ -116,7 +120,6 @@ cpp_build.corpus <- function(corpus, labeling, banned=c(), params ) {
 build.corpus <- function(corpus, labeling, banned=NULL, 
                          verbosity = 1,
                          token.type="word" ) {
-  
   params = as.list(environment())
   params$corpus = NULL
   params$labeling = NULL
@@ -176,6 +179,7 @@ cpp_textreg <- function(corpus, params)
 #' @param positive.only Disallow negative features if true
 #' @param positive.weight Scale weight pf all positively marked documents by this value.  (1, i.e., no scaling) is default)   NOT FULLY IMPLEMENTED
 #' @param binary.features Just code presence/absence of a feature in a document rather than count of feature in document.
+#' @param no.regularization Do not renormalize the features at all.  (Lq will be ignored.)
 #' @param Lq Rescaling to put on the features (2 is standard).  Can be from 1 up.  Values above 10 invoke an infinity-norm.
 #' @param min.support Only consider phrases that appear this many times or more.
 #' @param min.pattern Only consider phrases this long or longer
@@ -198,6 +202,7 @@ textreg <- function(corpus, labeling, banned=NULL,
 				step.verbosity = verbosity,
 				positive.only = FALSE,
 				binary.features = FALSE,
+                no.regularization = FALSE, 
 				positive.weight = 1,
 				Lq = 2,
 				min.support = 1,
@@ -271,6 +276,7 @@ find.threshold.C <- function(corpus, labeling, banned=NULL,
 				step.verbosity = verbosity,
 				positive.only = FALSE,
 				binary.features = FALSE,
+                no.regularization = FALSE,
 				positive.weight = 1,				
 				Lq = 2,
 				min.support = 1,
@@ -347,6 +353,9 @@ print.textreg.result = function( x, simple=FALSE, ... ) {
 	with( x$notes, {
 		cat( "    C = ", C, " a = ", a, " Lq = ", Lq, "\n", sep="" )
 		cat( "    min support = ", min.support, "  phrase range = ", min.pattern, "-", max.pattern, " with up to ", gap, " gaps.", sep="" )
+		if ( no.regularization ) {
+		    cat( "  (no regularization)" )
+		}
 		if ( binary.features ) {
 			cat( "  (binary features)" )
 		}

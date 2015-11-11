@@ -73,7 +73,7 @@ stem.corpus <- function(corpus, verbose = TRUE) {
 		new_words <- strsplit(new_corpus[[i]], " ")[[1]]
 		orig <- strsplit(content(corpus[[i]]), " ")[[1]]
 
-		ids = orig %in% stemmed_words
+		ids = new_words %in% stemmed_words
 		new_words[ids] = paste0(new_words[ids], "+")
 		new_corpus[i] = paste0(new_words, collapse = " ")
 	}
