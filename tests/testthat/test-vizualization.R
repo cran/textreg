@@ -4,6 +4,7 @@
 library( testthat )
 library( textreg )
 
+#library( corrplot )
 
 context( "vizualtion methods" )
 

@@ -31,7 +31,7 @@ test_that( "zero intercept included", {
 	res = textreg( testIII, rep( c(1,-1), 50 ), c(), verbosity = 0 )
 	res = res$model
 	expect_equal( res$beta[[1]], 0 )
-	expect_output( res, "*intercept*" )
+	expect_output( print( res ), "*intercept*" )
 } )
 
 test_that( "all positive frogs", {
@@ -50,7 +50,7 @@ test_that( "negative betas", {
 	res = res$model
 	
 	dnky = res[ 2, ]
-	expect_output( dnky, "donkey" )
+	expect_output( print( dnky ), "donkey" )
 	expect_true( dnky$beta[[1]] < 0 )
 	expect_equal( dnky$Z[[1]],  sqrt(8) )
 	

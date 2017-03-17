@@ -54,7 +54,23 @@ test_that("cross validatation function works", {
 
 	# does it plot without crashing?
 	rs = make.CV.chart( tbl )
-	expect_equal( length(rs), 2 )
+	expect_equal( length(rs), 4 )
 } )
 
 
+test_that("passing maxIter through cross-validatation function works", {
+    
+    data( bathtub )
+    mth.lab = meta(bathtub)$meth.chl
+    mth.lab[ 90:100 ] = 1
+    table( mth.lab )
+    
+    tbl = find.CV.C( bathtub, mth.lab, c("methylene","chloride"), 4, 10, maxIter=3, verbosity=0 )
+    tbl
+    expect_equal( nrow( tbl ), 10 )
+    expect_equal( ncol( tbl ), 4 )
+    
+    # does it plot without crashing?
+    rs = make.CV.chart( tbl )
+    expect_equal( length(rs), 4 )
+} )

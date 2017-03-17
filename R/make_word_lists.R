@@ -63,7 +63,7 @@ make.list.table = function (result.list, model.names = names(result.list), M = 1
                             topic = "Summary Collection", method = c("rank", "weight", "count", "word"),
                             annotate=TRUE) 
 {
-    if (!is.list(result.list)) {
+    if (!is.list(result.list) || is.textreg.result(result.list) ) {
         stop("Need a list of result objects")
     }
     stopifnot(length(result.list) > 1)
@@ -265,6 +265,8 @@ old.make.list.table = function( result.list, model.names = names(result.list), M
 #' @param color.breaks  Cut-points (like on a histogram) defining the different color levels.
 #' @param color.ramp List of colors to use from lowest value (potentially negative weights) to highest.  If both color.breaks and color.ramp passed, color.breaks is list one longer than color.ramp. 
 #' @param ... Extra arguments for the core image() call that plots the word weights.
+#' @importFrom stats quantile
+#' @importFrom graphics image abline axis
 list.table.chart = function( model.list, M=100, linespace=4, ytick=NULL, 
 		dates=NULL, 
 		main = paste( "Word Appearance for ", attr(model.list,"topic"), "\n(Method: ", attr(model.list,"method"),")", sep=""),

@@ -4,7 +4,7 @@
 library( testthat )
 library( textreg )
 
-context( "build.corpus and re-calliing textreg" )
+context( "build.corpus and re-calling textreg" )
 
 test_that("we can build a corpus", {
 	data( testCorpora )

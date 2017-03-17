@@ -98,12 +98,16 @@ cpp_build.corpus <- function(corpus, labeling, banned=c(), params ) {
 #'
 #' See the bathtub vignette for more complete discussion of this method and the options 
 #' you might pass to it.
+#' 
+#' A textreg.corpus object is not a \code{tm}-style corpus.  In particular, all text
+#' pre-processing, etc., to text should be done to the data \emph{before} building the
+#' textreg.corpus object.
 #'
 #' @note Unfortunately, the process of seperating out the textreg call and the build.corpus
 #'     call is not quite as clean as one would hope.  The build.corpus call moves the text into
 #'     the C++ memory, but the way the search tree is built for the regression it is hard to salvage
 #'     it across runs and so this is of limited use.  In particular, the labeling and banned words
-#'     cannot be easily changed.   Future versions of the package should remedy this.
+#'     cannot be easily changed.   Future versions of the package would ideally remedy this.
 #' 
 #' @export
 #' @param corpus A list of strings or a corpus from the \code{tm} package.
@@ -112,7 +116,7 @@ cpp_build.corpus <- function(corpus, labeling, banned=c(), params ) {
 #' @param banned  List of words that should be dropped from consideration.
 #' @param verbosity Level of output.  0 is no printed output.
 #' @param token.type  "word" or "character" as tokens.
-#' @return A \code{\link{textreg.result}} object.
+#' @return A \code{\link{textreg.corpus}} object.
 #' @examples
 #' data( testCorpora )
 #' textreg( testCorpora$testI$corpus, testCorpora$testI$labelI, c(), C=1, verbosity=1 )
@@ -387,8 +391,8 @@ print.textreg.result = function( x, simple=FALSE, ... ) {
 
 #' Is object a textreg.result object?
 #'
-#' @export
 #' @aliases textreg.result
+#' @export
 #' @param x the object to check.
 #' @family textreg.result
 is.textreg.result = function( x ) {
@@ -396,6 +400,16 @@ is.textreg.result = function( x ) {
 }
 
 
+
+
+#' Get the phrases from the textreg.result object?
+#'
+#' @export
+#' @param x the object to check.
+#' @family textreg.result
+phrases = function( x ) {
+    x$model$ngram
+}
 
 
 

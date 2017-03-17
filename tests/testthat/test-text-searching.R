@@ -5,6 +5,7 @@
 # simple tests for textreg package
 library( testthat )
 library( textreg )
+library( tm )
 
 context( "Basic Utility Functions" )
 
@@ -17,11 +18,16 @@ test_that( "phrase expansion works", {
 
 	expect_equal( textreg:::make_search_phrases( NULL ), c() )
 	
-	expect_equal( textreg:::make_search_phrases( c( "A * B", "this *" ) ), c( "\\bA \\w+ B\\b", "\\bthis \\w+\\b" ) )
+	expect_equal( textreg:::make_search_phrases( c( "A * B", "this *" ) ), c( "\\bA \\w+[+]? B\\b", "\\bthis \\w+[+]?\\b" ) )
 	
-	expect_equal( textreg:::make_search_phrases( c( "AA+", "A+ B+", "A+ *" ) ), c( "\\bAA\\w*\\b", "\\bA\\w* B\\w*\\b", "\\bA\\w* \\w+\\b" ) )
-	 
+	expect_equal( textreg:::make_search_phrases( c( "AA+", "A+ B+", "A+ *" ) ), c( "\\bAA\\w*[+]?\\b", "\\bA\\w*[+]? B\\w*[+]?\\b", "\\bA\\w*[+]? \\w+[+]?\\b" ) )
+
+		 
 } )
+
+
+
+
 
 
 
@@ -76,6 +82,87 @@ test_that( "Stemming searches work", {
 } )
 
 
+test_that( "Stemming searches work (with corpus object)", {
+    docs = c( "test pig", "testing", "test dog", "test ", "test", "test piggy ", "no t-word " )
+    docs <- VCorpus(VectorSource(docs))
+    
+    res = grab.fragments( "test+", docs, char.before=4, char.after=4, clean=FALSE )
+    res
+    expect_equal( as.character(res), c("TEST pig", "TESTING",  "TEST dog", "TEST ",    "TEST"  ,   "TEST pig" ,"NULL"   ) )
+} )
+
+
+
+test_that( "multiple words with stemming works on stemmed data" , {
+    
+    data( bathtub )
+    bccc = stem.corpus( bathtub, verbose=FALSE )
+    
+    bccc = bccc[1]
+    
+    bccc[[1]]$content
+    bathtub[[1]]$content
+    
+    gregexpr( "the", bccc[[1]]$content, ignore.case=FALSE, perl=FALSE, fixed=FALSE, useBytes=FALSE )
+    
+    gregexpr( "ignit+ the", bccc[[1]]$content, ignore.case=FALSE, perl=FALSE, fixed=FALSE, useBytes=FALSE )
+    gregexpr( "ignit+ the", bccc[[1]]$content, ignore.case=FALSE, perl=FALSE, fixed=TRUE, useBytes=FALSE )
+    gregexpr( "boooooo", bccc[[1]]$content, ignore.case=FALSE, perl=FALSE, fixed=TRUE, useBytes=FALSE )
+    
+    textreg:::tm_gregexpr( "ignit+ the", bccc )
+    textreg:::tm_gregexpr( "ignit+ the", bccc, fixed = TRUE )
+    
+        
+    sp = textreg:::make_search_phrases( "ignit+ the" )
+    sp
+    res = gregexpr(  sp, bccc[[1]]$content, ignore.case=FALSE, perl=FALSE, fixed=FALSE, useBytes=FALSE )
+    expect_equal( as.numeric( res[[1]] ), 203L )
+    
+    sp = textreg:::make_search_phrases( "burn+" )
+    sp
+    
+    res = grab.fragments( "burn+", bccc, char.before=4, char.after=4, clean=FALSE )
+    res
+    expect_equal( as.character(res[[1]]), c("was BURN+ ov", "was BURNT ove") )
+    
+    res = grab.fragments( "the pilot", bccc, char.before=4, char.after=4, clean=FALSE )
+    as.character(res[[1]])
+    expect_equal( as.character(res[[1]]), c("it+ THE PILOT lig" ) )
+    
+    res = grab.fragments( "ignit+ the", bccc, char.before=4, char.after=4, clean=FALSE )
+    expect_equal( as.character(res[[1]]), c("ent IGNIT+ THE pil" ) )
+    
+} )
+
+
+test_that( "Searching on stemmed documents", {
+    data( bathtub )
+    bccc = stem.corpus( bathtub, verbose=FALSE )
+    
+    bccc = bccc[1]
+
+    bccc[[1]]$content
+    
+    res = grab.fragments( "burn+", bccc, char.before=4, char.after=4, clean=FALSE )
+    res
+    expect_equal( as.character(res[[1]]), c("was BURN+ ov", "was BURNT ove") )
+
+    res = grab.fragments( "the pilot", bccc, char.before=4, char.after=4, clean=FALSE )
+    as.character(res[[1]])
+    expect_equal( as.character(res[[1]]), c("it+ THE PILOT lig" ) )
+
+    res = grab.fragments( "ignit+ the", bccc, char.before=4, char.after=4, clean=FALSE )
+    res
+    as.character(res[[1]])
+    expect_equal( as.character(res[[1]]), c("ent IGNIT+ THE pil" ) )
+    
+} )
+
+
+
+
+
+
 
 
 
@@ -89,18 +176,28 @@ test_that( "phrase.count.table", {
 
 
 
+# check phrase counting 
+test_that( "make.count.table()", {
+    data( bathtub )
+    lab = meta( bathtub, "meth.chl" )
+    length(lab)
+    mat = make.count.table( c( "a", "and", "bathtub", "falling", "asdfac", "stripper" ), lab$meth.chl, bathtub )
+    mat
+    expect_equal( nrow( mat ), 6 )
+    expect_equal( ncol( mat ), 4 )
+    expect_equal( mat$n, c( 123, 110, 16, 2, 0, 10 ) )
+} )
 
-test_that( "phrase expansion works", {
-	expect_equal( textreg:::make_search_phrases( "hi" ), "\\bhi\\b" )
-	
-	expect_equal( textreg:::make_search_phrases( c() ), c() )
-
-	expect_equal( textreg:::make_search_phrases( NULL ), c() )
-	
-	expect_equal( textreg:::make_search_phrases( c( "A * B", "this *" ) ), c( "\\bA \\w+ B\\b", "\\bthis \\w+\\b" ) )
-	
-	expect_equal( textreg:::make_search_phrases( c( "AA+", "A+ B+", "A+ *" ) ), c( "\\bAA\\w*\\b", "\\bA\\w* B\\w*\\b", "\\bA\\w* \\w+\\b" ) )
-	 
+# check phrase counting 
+test_that( "make.count.table() wildcards", {
+    data( bathtub )
+    lab = meta( bathtub, "meth.chl" )
+    length(lab)
+    mat = make.count.table( c( "applying * cement", "installing * batht+", "bathtu+", "batht+", "asdfac", "strip+" ), lab$meth.chl, bathtub )
+    mat
+    expect_equal( nrow( mat ), 6 )
+    expect_equal( ncol( mat ), 4 )
+    expect_equal( mat$n, c( 1, 1, 16, 16, 0, 15 ) )
 } )
 
 
@@ -119,57 +216,10 @@ test_that( "Order of parameters error trap is ok", {
 } )
 
 
-test_that( "Capitalization of subphrase works", {
-	docs = c( "987654321 test 123456789", "987654321 test word 123456789", "test at start", "a test b", "this is a test", "no test for hamsters", "without the t-word" )
-	docs <- Corpus(VectorSource(docs))
-	res = grab.fragments( "test", docs, char.before=4, char.after=4, clean=FALSE )
-	expect_equal( as.character(res), c( "321 TEST 123", "321 TEST wor", "TEST at ",    "a TEST b",     "s a TEST",     "no TEST for", "NULL" ) )
-
-	res = grab.fragments( "test *", docs, char.before=4, char.after=4, clean=FALSE )
-	reslist = c( "321 TEST 123456789", "321 TEST WORD 123", "TEST AT sta",    "a TEST B",     "NULL",     "no TEST FOR ham", "NULL" )
-	expect_equal( as.character(res), reslist )
-
-	res = grab.fragments( "test *", docs, char.before=4, char.after=4, cap.phrase=FALSE )
-	expect_equal( as.character(res)[1:4], tolower(reslist )[1:4] )
-
-	res = grab.fragments( "test * hamsters", docs, char.before=4, char.after=4, clean=FALSE )
-	expect_equal( as.character(res), c( "NULL", "NULL", "NULL", "NULL", "NULL", "no TEST FOR HAMSTERS", "NULL" ) )
-
-	expect_error( grab.fragments( c("test","start"), docs, char.before=4, char.after=4, clean=FALSE ) )
-	expect_error( grab.fragments( "", docs, char.before=4, char.after=4, clean=FALSE ) )
-
-} )
 
 
 
-test_that( "White space at ends doesn't break", {
-	docs = c( "test pig", "test", "test ", "test piggy ", "no t-word " )
-	docs <- Corpus(VectorSource(docs))
 
-	res = grab.fragments( "test", docs, char.before=4, char.after=4, clean=FALSE )
-	res
-	reslist = c("TEST pig",    "TEST",        "TEST ",        "TEST pig", "NULL"   )
-	expect_equal( as.character(res), reslist )
-	
-	res = grab.fragments( "test *", docs, char.before=4, char.after=4, clean=FALSE )
-	res
-	
-	reslist = c("TEST PIG",    "NULL",        "NULL",        "TEST PIGGY ", "NULL"   )
-	expect_equal( as.character(res), reslist )
-	
-} )
-
-
-test_that( "Stemming searches work", {
-	docs = c( "test pig", "testing", "test dog", "test ", "test", "test piggy ", "no t-word " )
-	docs <- Corpus(VectorSource(docs))
-
-	res = grab.fragments( "test+", docs, char.before=4, char.after=4, clean=FALSE )
-	res
-	expect_equal( as.character(res), c("TEST pig", "TESTING",  "TEST dog", "TEST ",    "TEST"  ,   "TEST pig" ,"NULL"   ) )
-
-	
-} )
 
 
 
@@ -242,18 +292,19 @@ test_that( "grabbing fragments works", {
 
 	# looking at what "a bathtub" and "tub * a" are from
 	frags = sample.fragments( "a bathtub", lab, bathtub, 20 )
-#	print( frags )
-	expect_output( frags, "Appearance of" )
-	expect_output( frags, "Profile of Summary Phrase: 'a bathtub'" )
-	expect_output( frags, "Positive: 5/17 = 29.41" )
-	expect_output( frags, "on january XX XXXX an employee was refinishing A BATHTUB in a private residence the bathroom in which the employee was working was small" )
+	
+    #	print( frags )
+	expect_output( print( frags ), "Appearance of" )
+	expect_output( print( frags ), "Profile of Summary Phrase: 'a bathtub'" )
+	expect_output( print( frags ), "Positive: 5/17 = 29.41" )
+	expect_output( print( frags ), "on january XX XXXX an employee was refinishing A BATHTUB in a private residence the bathroom in which the employee was working was small" )
 	
 	#print( head(frags) )
 	
 	
 	frags = sample.fragments( "tub * a", lab, bathtub, 20 )
-	expect_output( frags, "Positive: 3/17 = 17.65" )
-	expect_output( frags, "Negative: 0/110 = 0.00" )
+	expect_output( print( frags ), "Positive: 3/17 = 17.65" )
+	expect_output( print( frags ), "Negative: 0/110 = 0.00" )
 
 	#print( head(frags) )
 	
@@ -265,7 +316,7 @@ test_that( "grabbing fragments works", {
 test_that( "sample.fragments and setting phrase lengths works", {
 	docs = c( "987654321 test 123456789", "987654321 test word 123456789", "test at start", "a test b", "this is a test", "no test for hamsters", "without the t-word" )
 	lab = c(1,1,1,1,-1,-1,-1)
-	corpus <- Corpus(VectorSource(docs))
+	corpus <- VCorpus(VectorSource(docs))
 		
 	reslist = c( "321 TEST 123456789", "321 TEST WORD 123", "TEST AT sta",    "a TEST B",     "NULL",     "no TEST FOR ham", "NULL" )
 
@@ -292,7 +343,7 @@ test_that( "sample.fragments and setting phrase lengths works", {
 
 test_that( "testing multiples in grab.fragments", {
 	docs = c( "987654321 test 123456789", "987654321 test test word 123456789", "test at start", "a test b", "this is a test", "no test for hamsters", "without the t-word", "a test and test next", "a test for you and a test for me" )
-	corpus <- Corpus(VectorSource(docs))
+	corpus <- VCorpus(VectorSource(docs))
 	
 	reslist = c( "321 TEST 123456789", "321 TEST TEST wor", "TEST AT sta",    "a TEST B",      "no TEST FOR ham",  "a TEST AND tes", "and TEST NEXT", "a TEST FOR you", "d a TEST FOR me" )
 
@@ -309,7 +360,7 @@ test_that( "testing multiples in grab.fragments", {
 test_that( "more tests of sample.fragments", {
 	docs = c( "987654321 test 123456789", "987654321 test word 123456789", "test at start", "a test b", "this is a test", "no test for hamsters", "without the t-word" )
 	lab = c(1,1,1,1,-1,-1,-1)
-	corpus <- Corpus(VectorSource(docs))
+	corpus <- VCorpus(VectorSource(docs))
 	
 	rs = make.count.table( c("test","word"), lab, corpus )
 	expect_equal( nrow(rs), 2 )
@@ -347,3 +398,24 @@ test_that( "more tests of sample.fragments", {
 	expect_equal( tolower( as.character(res[[1]]$resN) ), docs[6] )
 
 } )
+
+
+
+
+test_that( "grab.fragments with wildcards and stemming", {
+    docs = c( "politics is awesome", "Beware Political People!", "behold the happy politic", "the sad politic", "the happy political process" )
+    docs = tolower( docs )
+    corpus <- VCorpus(VectorSource(docs))
+    
+    grab.fragments( "polit+", corpus )
+    
+    grab.fragments( "the * polit+", corpus )
+    
+    
+    c.stem = stem.corpus( corpus, verbose = FALSE )
+    convert.tm.to.character( c.stem )
+    
+    grab.fragments( "polit+", c.stem )    
+    grab.fragments( "the * polit+", c.stem )
+} )
+

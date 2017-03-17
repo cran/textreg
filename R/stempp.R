@@ -1,6 +1,6 @@
 #' Step corpus with annotation.
 #'
-#' Given a VCorpus of original text, 
+#' Given a \code{tm}-package VCorpus of original text, 
 #' returns a VCorpus of stemmed text with '+' appended to all stemmed words. 
 #'
 #' This is non-optimized code that is expensive to run.
@@ -9,27 +9,40 @@
 #' Finally, the method passes through and adds a "+" to all stems found without a
 #' suffix.
 #' 
-#' So, e.g., goblins and goblin will both be "goblin+".
+#' So, e.g., goblins and goblin will both be transformed to "goblin+".
+#' 
+#' Adding the '+' makes stemmed text more readible.
 #'
 #' Code based on code from Kevin Wu, UC Berkeley Undergrad Thesis 2014.
 #'
 #' Requires, via the tm package, the SnowballC package.
 #'
+#' Warning: Do not use this on a \code{\link{textreg.corpus}} object.  Do to text before
+#' building the \code{\link{textreg.corpus}} object.
+#' 
 #' @export
 #' @param corpus Original text
-#' @param verbose True means do progress bar to watch progress.
+#' @param verbose True means print out text progress bar so you can watch progress.
 #' @import NLP
 #' @import tm
+#' @importFrom utils setTxtProgressBar txtProgressBar 
 #' @examples
-#' \dontrun{ 
+#' \donttest{ 
 #' library( tm )
 #' texts <- c("texting goblins the dagger", "text these goblins", 
 #'             "texting 3 goblins appl daggers goblining gobble")
-#' corpus <- Corpus(VectorSource(texts))
+#' corpus <- VCorpus(VectorSource(texts))
 #' stemmed_corpus<-stem.corpus(corpus, verbose=FALSE)
-#' stemmed_corpus[[2]]
+#' inspect( stemmed_corpus[[2]] )
 #' }
 stem.corpus <- function(corpus, verbose = TRUE) {
+    if ( is.character( corpus ) ) {
+        warning( "Converting character vector corpus to tm VCorpus (VectorSource)" )
+        corpus = VCorpus( VectorSource( corpus ) )
+    } else if ( is.textreg.corpus(corpus) ) {
+        stop( "Unfortunately, textreg.corpus objects can only be passed to textreg() and not other functions" )
+    }
+    
 	stemmed_corpus <- tm_map(corpus, stemDocument)
 	
 	new_corpus <- rep(NA, length(corpus))
@@ -43,19 +56,20 @@ stem.corpus <- function(corpus, verbose = TRUE) {
 			setTxtProgressBar(pb, i/2)
 		}
 
-		orig <- strsplit(content(corpus[[i]]), " ")[[1]]
-		stem <- strsplit(content(stemmed_corpus[[i]]), " ")[[1]]
+		orig <- scan_tokenizer( content(corpus[[i]]) )
+		stem <- scan_tokenizer( content(stemmed_corpus[[i]]) )
 		if (length(orig) != length(stem)) {
 			if (length(stem) == 0) {
 				cat( "missing doc is |", content(corpus[[i]]), "|\n", sep="" )
 				stem = c("")
 			} else {
+			    browser()
 				cat( "missing doc is |", content(corpus[[i]]), "|\n", sep="" )
 				print(orig)
 				cat("\n")
 				print(stem)
 	
-				stop("Corpuses do not match up!")
+				stop("stem.corpus failure: Corpuses do not match up!")
 				#If this is the case, check encodings of corpus and inputs
 			}
 		}
@@ -82,7 +96,7 @@ stem.corpus <- function(corpus, verbose = TRUE) {
 		close(pb)
 	}
 	rm( stemmed_corpus )
-	return(Corpus(VectorSource(new_corpus)))
+	return(VCorpus(VectorSource(new_corpus)))
 }
 
 
@@ -92,12 +106,13 @@ if (FALSE) {
 	texts <- c("texting goblins the dagger", "text the goblin", "texting 3 goblins appl daggers goblining gobble")
 	texts = rep(texts, 1000)
 
-	corpus <- Corpus(VectorSource(texts))
+	corpus <- VCorpus(VectorSource(texts))
 	aa = tm_map(corpus, stemDocument)
-	aa[[55]]
+	content( aa[[55]] )
 
 	stemmed_corpus <- stem.corpus( corpus )
 	stemmed_corpus
-	stemmed_corpus[[4]]
-	stemmed_corpus[[5]]
+	content( stemmed_corpus[[55]] )
+	content( stemmed_corpus[[4]] )
+	content( stemmed_corpus[[5]] )
 }

@@ -68,8 +68,8 @@ test_that( "Different ways of making phrase matrices work", {
 	keyphrase.mat[, "*intercept*"] = 1
 
 	k2 = phrase.matrix( res$rules, res$notes$n )
-
-	expect_equal( k2, as.matrix( keyphrase.mat ) )
+	expect_equal( dim( k2 ), dim( keyphrase.mat ) )
+	expect_true( all( k2 == keyphrase.mat ) )
 
 } )
 
@@ -189,9 +189,10 @@ test_that( "predict.textreg.result getting matrix works", {
 	expect_equal( sum(mt), 3 )
 	expect_equal( mt[,1], c(1,1) )
 	
-	new.text = Corpus( VectorSource( new.text ) )
+	new.text = VCorpus( VectorSource( new.text ) )
 	pds2 = predict( res, new.text, return.matrix=TRUE )
-	expect_equal( pds, pds2 )
+	expect_true( all( pds == pds2 ) )
+	expect_true( all( attr( pds, "keyphrase.matrix" ) == attr( pds2, "keyphrase.matrix" ) ) )
 } )
 
 

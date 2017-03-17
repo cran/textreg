@@ -46,9 +46,17 @@ tm_gregexpr = function( pattern, corpus, ignore.case = FALSE, perl = FALSE, fixe
 	} else {
 		# TO DO: Is this the fast way, or should it be cast to 
 		# character and then called without sapply?
-		rs = sapply( corpus, function( minicorp ) {
-			gregexpr(  pattern, content(minicorp), ignore.case, perl, fixed, useBytes )
-		} )
+	    
+	    # TODO: sapply on SimpleCorpus makes a character vector!  
+	    if ( "SimpleCorpus" %in% class(corpus) ) {
+	        rs = sapply( corpus, function( minicorp ) {
+	            gregexpr(  pattern, minicorp, ignore.case, perl, fixed, useBytes )
+	        } )
+	    } else {
+	        rs = sapply( corpus, function( minicorp ) {
+	            gregexpr(  pattern, content(minicorp), ignore.case, perl, fixed, useBytes )
+	        } )
+	    }
 	}
 	rs
 }
@@ -70,7 +78,13 @@ make_search_phrases = function( phrases ) {
 	
 	x = gsub( "*", "\\w+", phrases, fixed=TRUE )
 	x = gsub( "+", "\\w*", x, fixed=TRUE )
-	x = gsub( "\\w\\w*", "\\w+", x, fixed=TRUE )  # sad hack
+	
+	# sad hack to deal with the + from the * getting expanded
+	x = gsub( "\\w\\w*", "\\w+", x, fixed=TRUE )
+	
+	# another sad hack to allow for '+' at the end of words.
+	x = gsub( "\\w+", "\\w+[+]?", x, fixed = TRUE )
+	x = gsub( "\\w*", "\\w*[+]?", x, fixed = TRUE )
 	
 	x = paste( "\\b", x, "\\b", sep="" )
 	x
@@ -111,7 +125,6 @@ make.count.table = function( phrases, labeling, corpus ) {
 	#	names(labeling) = unlist( meta( corpus, type="local", "ID" ) )
 	
 	cnts = sapply( phrases, function(x) { 
-		#x = gsub( "*", "\\w*", x, fixed=TRUE )
 	    x = make_search_phrases( x )
 		#cat( "searching '", x, "'\n", sep="" )
 		#pos = tm_index( mcorp, x )
@@ -243,12 +256,16 @@ phrase.count = function( phrase, corp ) {
 #' docs = c( "987654321 test 123456789", "987654321 test test word 123456789", 
 #'        "test at start", "a test b", "this is a test", "without the t-word",
 #'        "a test for you and a test for me" )
-#' corpus <- Corpus(VectorSource(docs))
+#' corpus <- VCorpus(VectorSource(docs))
 #' grab.fragments( "test *", corpus, char.before=4, char.after=4 )
 #' @export
 grab.fragments = function( phrase, corp, char.before = 80,
  			 char.after=char.before, cap.phrase=TRUE, clean=FALSE ) {
 
+    if ( is.textreg.corpus(corp) ) {
+        stop( "Unfortunately, textreg.corpus objects can only be passed to textreg() and not other functions" )
+    }
+    
 	stopifnot( length( phrase ) == 1 )
 	stopifnot( nchar(phrase) > 0 )
 	
@@ -317,7 +334,10 @@ grab.fragments = function( phrase, corp, char.before = 80,
 #' sample.fragments( "bathtub", meta(bathtub)$meth.chl, bathtub )
 sample.fragments = function( phrases, labeling, corp, N=10, char.before=80, char.after=char.before, metainfo=NULL ) {
 	
-	stopifnot( "Corpus" %in% class(corp) )
+    if ( is.textreg.corpus(corp) ) {
+        stop( "Unfortunately, textreg.corpus objects can only be passed to textreg() and not other functions" )
+    }
+    stopifnot( "Corpus" %in% class(corp) )
 
 	lb = labeling
 	stopifnot( !is.null( lb ) )

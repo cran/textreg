@@ -44,6 +44,7 @@ make.path.matrix = function( res ) {
 #' @param bty Box for plot
 #' @param ... Arguments to be passed to the matplot() command.
 #' @family plot.path.matrix
+#' @importFrom graphics matplot legend
 path.matrix.chart = function( path.matrix, xlab="step", ylab="beta", bty="n", ... ) {
 	if ( is.textreg.result( path.matrix ) ) {
 		path.matrix = make.path.matrix( path.matrix )

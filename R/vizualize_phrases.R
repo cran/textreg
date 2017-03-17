@@ -106,9 +106,13 @@ make.similarity.matrix = function( result ) {
 #' @param main  Title of plot.
 #' @param ...   Extra arguments to pass to the plot command.  See par.
 #' @family Phrase Vizualization
+#' @importFrom grDevices grey rgb
+#' @importFrom graphics par
+#' @importFrom stats hclust as.dist cutree rect.hclust
 #' @export
 cluster.phrases = function( result, num.groups=5, plot=TRUE, yaxt="n", ylab="", sub="", main="Association of Phrases", ... ) {
-	if ( is.textreg.result( result ) ) {
+    requireNamespace( "stats" )
+    if ( is.textreg.result( result ) ) {
 		mat = make.appearance.matrix ( result )
 		sim.mat = make.similarity.matrix( result )
 	} else {
@@ -168,6 +172,7 @@ cluster.phrases = function( result, num.groups=5, plot=TRUE, yaxt="n", ylab="", 
 #' @param ... Extra arguments to pass to the image() plotting command.  See par.
 #' @family Phrase Vizualization
 #' @export
+#' @importFrom graphics text
 make.phrase.correlation.chart = function( result, count=FALSE, num.groups=5, use.corrplot=FALSE, ... ) {
 	
 	lst = cluster.phrases( result, num.groups=num.groups, plot=FALSE )

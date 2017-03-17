@@ -2845,7 +2845,7 @@ SEXP textreg(Rcpp::XPtr<SeqLearner> seql_learner, Rcpp::List rparam) {
             notes[ "Lp" ] = seql_learner->Lp;
             notes[ "binary.features" ] = seql_learner->binary_features;
             notes[ "no.regularization"] = seql_learner->no_regularization;
-            notes[ "positivr.weight" ] = seql_learner->positive_weight;
+            notes[ "positive.weight" ] = seql_learner->positive_weight;
 
             if ( seql_learner->verbosity > 1 ) {
                 Rcout << "going to return" << endl;

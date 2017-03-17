@@ -18,9 +18,11 @@
 #' @param ... parameters to be passed to the original textreg() function
 #' @import tm
 #' @export
+#' @importFrom stats sd
 #' @seealso make.CV.chart
 find.CV.C <-function( corpus, labeling, banned, K=5, length.out=10, max_C=NULL, verbose=FALSE, ... ) {
-	
+    requireNamespace( "stats" )
+    
 	## Cut up a sequence into random chunks for CV
 	chunk <- function(x,n) split(x, factor(sample(x%%n)))
 		
@@ -47,7 +49,7 @@ find.CV.C <-function( corpus, labeling, banned, K=5, length.out=10, max_C=NULL, 
     
     # ensure text is a list of strings.
     #texts<-convert_list(corpus)
-    #texts = Corpus(VectorSource(texts))
+    #texts = VCorpus(VectorSource(texts))
     texts = corpus
     means=numeric(0)
     std_err=numeric(0)
@@ -118,6 +120,8 @@ find.CV.C <-function( corpus, labeling, banned, K=5, length.out=10, max_C=NULL, 
 #' @return invisible list of the minimum C value and the estimated test error for both the minimum
 #'    and the predicted C corresponding to 1 SE above the minimum estimate.
 #' @seealso find.CV.C
+#' @importFrom stats loess optimize predict
+#' @importFrom graphics arrows lines points
 make.CV.chart = function( tbl, plot=TRUE, ... ) {
 
 	lo.curve = loess(  test.err ~ Cs, tbl, weights=tbl$std_err )
