@@ -15,4 +15,5 @@ table( dirtyBathtub$fatality )
 \seealso{
 Other bathtub: \code{\link{bathtub}}
 }
+\concept{bathtub}
 \keyword{datasets}

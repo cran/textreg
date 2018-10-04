@@ -4,8 +4,8 @@
 \alias{grab.fragments}
 \title{Grab all fragments in a corpus with given phrase.}
 \usage{
-grab.fragments(phrase, corp, char.before = 80, char.after = char.before,
-  cap.phrase = TRUE, clean = FALSE)
+grab.fragments(phrase, corp, char.before = 80,
+  char.after = char.before, cap.phrase = TRUE, clean = FALSE)
 }
 \arguments{
 \item{phrase}{Phrase to find in corpus}

@@ -4,12 +4,13 @@
 \alias{textreg}
 \title{Sparse regression of labeling vector onto all phrases in a corpus.}
 \usage{
-textreg(corpus, labeling, banned = NULL, objective.function = 2, C = 1,
-  a = 1, maxIter = 40, verbosity = 1, step.verbosity = verbosity,
-  positive.only = FALSE, binary.features = FALSE,
-  no.regularization = FALSE, positive.weight = 1, Lq = 2,
-  min.support = 1, min.pattern = 1, max.pattern = 100, gap = 0,
-  token.type = "word", convergence.threshold = 1e-04)
+textreg(corpus, labeling, banned = NULL, objective.function = 2,
+  C = 1, a = 1, maxIter = 40, verbosity = 1,
+  step.verbosity = verbosity, positive.only = FALSE,
+  binary.features = FALSE, no.regularization = FALSE,
+  positive.weight = 1, Lq = 2, min.support = 1, min.pattern = 1,
+  max.pattern = 100, gap = 0, token.type = "word",
+  convergence.threshold = 1e-04)
 }
 \arguments{
 \item{corpus}{A list of strings or a corpus from the \code{tm} package.}

@@ -23,3 +23,4 @@ make.path.matrix( res )
 Other plot.path.matrix: \code{\link{path.matrix.chart}},
   \code{\link{plot.textreg.result}}
 }
+\concept{plot.path.matrix}

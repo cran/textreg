@@ -33,3 +33,4 @@ head( make.phrase.matrix( c("bathtub","strip+", "vapor *"), bathtub ) )
 Other textregCounting: \code{\link{make.count.table}},
   \code{\link{phrase.count}}
 }
+\concept{textregCounting}

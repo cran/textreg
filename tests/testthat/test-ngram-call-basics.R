@@ -200,7 +200,8 @@ test_that( "ban word lists work", {
 	
 	rs = textreg( c( "frog goat", "goat frog", "goat", "goat"	), c( 1, 1, -1, -1 ), c("frog"), C=1, verbosity=0 )
 	expect_equal( rs$model$ngram, c("*intercept*" ) )
-
+    expect_equal( rs$banlist, c("frog" ) )
+    
 	rs = textreg( c( "A frog goat dog bear", "The frog goat dog cat", "Small frog or big goat dog cows", "Pickle frog goat under tiny dog licks"	), c( 1, 1, -1, -1 ), c(), g=1, C=2, verbosity=0 )
 	rs
 	

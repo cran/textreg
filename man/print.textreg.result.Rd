@@ -23,3 +23,4 @@ Other textreg.result: \code{\link{is.textreg.result}},
   \code{\link{phrases}},
   \code{\link{reformat.textreg.model}}
 }
+\concept{textreg.result}

@@ -18,3 +18,4 @@ Other textreg.result: \code{\link{phrases}},
   \code{\link{print.textreg.result}},
   \code{\link{reformat.textreg.model}}
 }
+\concept{textreg.result}

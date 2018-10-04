@@ -46,7 +46,7 @@ test_that("positive document rescaling works", {
 #	expect_equal( res$beta[[2]], sqrt(2), tolerance=0.0001 )
 
 
-	res = textreg( c( "A", "C", "C", "B", "B","B" ), c(1,-1,-1,-1,-1,-1), c(), C=0, verbosity=0, positive.weight=1 )	
+	res = textreg( c( "A", "C", "C", "B", "B","B" ), c(1,-1,-1,-1,-1,-1), c(), C=0.1, verbosity=0, positive.weight=1 )	
 	res
 #	res = res$model
 #	expect_equal( res$ngram[[1]], "*intercept*" )

@@ -233,7 +233,9 @@ test_that( "Documentation Example of make.count.table runs", {
 	
 	head( make.phrase.matrix( c("bathtub","strip+", "vapor *"), bathtub ) )
 	
-	phrase.count( "bathtub", bathtub )
+	pc = phrase.count( "bathtub", bathtub )
+	expect_equal( class( pc ), "numeric" )
+	expect_equal( length( pc ), 127 )
 } )
 
 
@@ -407,7 +409,9 @@ test_that( "grab.fragments with wildcards and stemming", {
     docs = tolower( docs )
     corpus <- VCorpus(VectorSource(docs))
     
-    grab.fragments( "polit+", corpus )
+    got = grab.fragments( "polit+", corpus )
+    expect_equal( length( got ), 5 )
+    expect_equal( got[[4]], "the sad POLITIC" )
     
     grab.fragments( "the * polit+", corpus )
     

@@ -4,8 +4,8 @@
 \alias{path.matrix.chart}
 \title{Plot optimization path of textreg.}
 \usage{
-path.matrix.chart(path.matrix, xlab = "step", ylab = "beta", bty = "n",
-  ...)
+path.matrix.chart(path.matrix, xlab = "step", ylab = "beta",
+  bty = "n", ...)
 }
 \arguments{
 \item{path.matrix}{Either a textreg.result object or a matrix from the make.path.matrix call.}
@@ -26,3 +26,4 @@ program.
 Other plot.path.matrix: \code{\link{make.path.matrix}},
   \code{\link{plot.textreg.result}}
 }
+\concept{plot.path.matrix}

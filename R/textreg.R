@@ -1,3 +1,5 @@
+
+
 #' Convert tm corpus to vector of strings.
 #'
 #' @description
@@ -245,6 +247,11 @@ textreg <- function(corpus, labeling, banned=NULL,
     
     rownames( val$model ) = val$model$ngram
     class( val ) = "textreg.result"
+    if ( is.null( banned ) ) {
+        val$banlist = vector(mode="character")
+    } else {
+        val$banlist = banned
+    }
     val
 }
 

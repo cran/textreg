@@ -17,3 +17,4 @@ Other textreg.result: \code{\link{is.textreg.result}},
   \code{\link{print.textreg.result}},
   \code{\link{reformat.textreg.model}}
 }
+\concept{textreg.result}

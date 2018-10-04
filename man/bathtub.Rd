@@ -17,4 +17,5 @@ meta( bathtub, "meth.chl" )
 \seealso{
 Other bathtub: \code{\link{dirtyBathtub}}
 }
+\concept{bathtub}
 \keyword{datasets}

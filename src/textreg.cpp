@@ -1,16 +1,6 @@
 /*
- * Author: Luke Miratrix (lmiratrix@stat.harvard.edu) 
+ * Author: Luke Miratrix (lmiratrix@stat.harvard.edu)
  * This is a rewrite of code from the ngram package of Georgiana Ifrim (georgiana.ifrim@gmail.com)
- *
- * This library trains ElasticNet-regularized Logistic Regression and SVM for Classifying Sequences (SEQL: Sequence Learner)
- * in the feature space of all possible subsequences in the given training set.
- * Elastic Net regularizer: alpha * L1 + (1 - alpha)*L2, which balances L1 and L2 effect. L1 influences the sparsity of the model, L2 corrects potentially high coeficients
- * resulting due to feature correlation (see Regularization Paths for Generalized Linear Models via Coordinate Descent, by Friedman et al).
- *
- * License:
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Library General Public
- * License as published by the Free Software Foundation.
  *
  */
 
@@ -70,20 +60,20 @@ using namespace std;
 using namespace Rcpp;
 
 
-#ifdef NDEBUG
-# define my_assert(EX)
-#else
-# define my_assert(EX) (void)((EX) || (__assert (#EX, __FILE__, __LINE__),0))
-#endif
+// #ifdef NDEBUG
+// # define // [Fix] my_assert(EX)
+// #else
+// # define // [Fix] my_assert(EX) (void)((EX) || (__assert (#EX, __FILE__, __LINE__),0))
+// #endif
+//
+// void __assert (const char *msg, const char *file, int line) {
+//     char buffer [100];
+//     snprintf( buffer, 100, "Assert Failure: %s at %s line #%d", msg, file, line );
+//     ::Rf_error( buffer );
+// }
 
-void __assert (const char *msg, const char *file, int line) {
-    char buffer [100];
-    snprintf( buffer, 100, "Assert Failure: %s at %s line #%d", msg, file, line );
-    ::Rf_error( buffer );
-}
 
-
-//void my_assert( string name, bool what ) {
+//void // [Fix] my_assert( string name, bool what ) {
 //	if (!what) {
 //		::Rf_error( ("assert failure: " + name).c_str() );
 //	}
@@ -170,8 +160,8 @@ public:
 
 
     std::vector <int>  &get_loc() {
-        my_assert( !shrunk );
-//		my_assert( "hasn't shrunk in get_loc",  !shrunk );
+        // [Fix] my_assert( !shrunk );
+//		// [Fix] my_assert( "hasn't shrunk in get_loc",  !shrunk );
 
     	return loc;
     }
@@ -197,8 +187,8 @@ public:
 	// many times the ngram is found in each doc in the support.
 	// Also compute the normalizing constant Z for this feature.
 	void calc_support_weights( LONG_DOUBLE Lp, bool binary_features, bool no_regularization ) {
-        my_assert( !shrunk );
-        my_assert( !converted );
+        // [Fix] my_assert( !shrunk );
+        // [Fix] my_assert( !converted );
 		int rcntr = 0;
 		unsigned int my_total_support = 0;
 		doc_support.clear();
@@ -223,10 +213,10 @@ public:
 		}
 		//Rcout << total_support << " " << my_total_support << endl;
 		if ( binary_features ) {
-			my_assert( total_docs == my_total_support );
+			// [Fix] my_assert( total_docs == my_total_support );
 
 		} else {
-			my_assert( total_support == my_total_support );
+			// [Fix] my_assert( total_support == my_total_support );
 		}
 		// now re-weight based on total support (this is L2 normalization)
 		Z = 0.0;
@@ -253,7 +243,7 @@ public:
 
 	// Shrink the list of total occurrences to contain just support doc_ids.
 	void shrink () {
-		my_assert( !shrunk );
+		// [Fix] my_assert( !shrunk );
 		std::vector<int> tmp;
 		for (unsigned int i = 0; i < loc.size(); ++i) {
 			if (loc[i] < 0) tmp.push_back (loc[i]);
@@ -267,7 +257,7 @@ public:
 	// Return the support of current ngram.
 	// Simply count the negative loc as doc_ids.
 	unsigned int support () {
-		my_assert( converted );
+		// [Fix] my_assert( converted );
 		return total_support;
 		/*unsigned int result = 0;
          for (unsigned int i = 0; i < loc.size(); ++i) {
@@ -438,53 +428,53 @@ const char *DELIMETERS = "\t ";
 
 
 class SeqLearner {
-    
-    
+
+
 	//private:
 public:
-    
-    
+
+
 	// Entire collection of documents, each doc represented as a string.
 	// The collection is a vector of strings.
 	std::vector < string > corpus;
-    
-    
+
+
 	// True classes.
 	std::vector < int >                 y;
-    
+
 	// Document weights (how much each document 'counts')   1 for everything is the norm.
 	//std::vector < LONG_DOUBLE >         doc_weight;
 
 	//  number of positive and negative examples
 	unsigned int num_pos;
 	unsigned int num_neg;
-    
+
 	// The fraction: 1 / 1 + exp^(yi*beta^t*xi) in the gradient computation.
 	std::vector < LONG_DOUBLE >         exp_fraction;
 	// Per document, sum of best beta weights, beta^t * xi = sum_{j best beta coord} gradient_j
 	std::vector < LONG_DOUBLE >              sum_best_xbeta;
-    
-    
+
+
 	// Regularized loss function: loss + lambda * elnreg
 	// SLR loss function: log(1+exp(-yi*beta^t*xi))
 	// Squared Hinge SVM loss function: sum_{i|1-yi*beta^t*xi > 0} (1 - yi*beta^t*xi)^2
 	//LONG_DOUBLE loss;
-    
+
 	// cache of all rules used in model.
 	std::map <string,space_t *> used_rule_cache;
-    
+
 	std::map <string, LONG_DOUBLE> final_model_cache;
-    
+
 	std::map <string, LONG_DOUBLE> features_cache;
 	//map<string, LONG_DOUBLE>::iterator features_it;
-    
+
 	// Objective function. For now choice between logistic regression and l2 (Squared Hinge Loss) or l1 (Hinge loss) SVM loss.
 	unsigned int objective;
 	// Regularizer value.
 	LONG_DOUBLE C;
 	// Weight on L1 vs L2 regularizer.
 	LONG_DOUBLE alpha;
-    
+
 	// p for the Lp norm on the regularization (and complemntary q)
 	LONG_DOUBLE Lp;
 	LONG_DOUBLE Lq;
@@ -494,35 +484,35 @@ public:
 
     // do not regularize the features
     bool no_regularization;
-    
+
 	// The sum of squared values of all non-zero beta_j.
 	LONG_DOUBLE sum_squared_betas;
-    
+
 	// The sum of abs values of all non-zero beta_j.
 	LONG_DOUBLE sum_abs_betas;
-    
+
     // set of unigrams with sufficient support (to check possible extensions of ngram phrase)
 	std::set <string> single_node_minsup_cache;
     std::map <string, space_t> unigrams;
-    
+
 	// tokens that are banned from consideration.  No phrase
 	// can cross them, and they cannot be components of phrases.
 	std::set <string> banned_words;
-    
-    
+
+
 	// The intercept rule
 	space_t		 int_rule;
-    
+
 	// Pointer to current rule.
 	space_t      *rule;
 	// Current suboptimal gradient.
 	LONG_DOUBLE       tau;
-    
-    
-    
+
+
+
 	// Whether to force betas to be nonnegative (1 means yes)
 	bool pos_only;
-    
+
 
 	// How much to inflate the weight of positive features.
 	LONG_DOUBLE positive_weight;
@@ -533,42 +523,42 @@ public:
 	unsigned int minpat;
 	// Min supoort for an ngram.
 	unsigned int minsup;
-    
+
 	// Allow features with gaps. Treat the gap as an additional unigram.
 	// Max # of consecutive gaps allowed in a feature.
 	unsigned int maxgap;
-    
+
 	// Total number of nodes in stored ngram tree
 	unsigned int total_nodes;
-    
+
 	// Total number of times the pruning condition checked in current step.
 	unsigned int total;
 	// Total number of times the pruning condition is satisfied in current step.
 	unsigned int pruned;
 	// Total number of times the best rule is rewritten in current step.
 	unsigned int rewritten;
-    
+
 	// Convergence threshold on aggregated change in score predictions.
 	// Can be used as a regularization parameter.
 	LONG_DOUBLE convergence_threshold;
-    
+
 	// Verbosity level: 0 - print no information,
 	// 					1 - print profiling information,
 	//					2 - print statistics on model and loss ftc per iteration
 	//					> 2 - print details about search for best n-gram and pruning process
 	int verbosity;
 	int step_verbosity;
-    
+
 	// Type of token
 	bool token_type;
-    
+
 	// Traversal strategy: BFS or DFS.
 	bool traversal_strategy;
-    
+
 	// Profiling variables.
 	struct timeval t;
 	struct timeval t_origin;
-    
+
 
 	// number of iterations run for gradient descent
 	unsigned int itr;
@@ -599,7 +589,7 @@ public:
         alpha = 1;
         Lp = Lq = 2;
         step_verbosity = 1;
-        
+
         banned_words.clear();
         y.clear();
         corpus.clear();
@@ -608,17 +598,17 @@ public:
         history_ngrams.clear();
 
         reset_tree();
-        
+
         gettimeofday(&t_origin, NULL);
 
 	}
-    
+
     // have the unigrams been culled?
     bool has_unigram_cache() {
         return !unigrams.empty();
     }
-    
-    
+
+
     // Reset tree for a new textreg run.
     void reset_tree() {
         unigrams.clear();
@@ -626,11 +616,11 @@ public:
 
         gettimeofday(&t_origin, NULL);
     }
-    
-    
+
+
     void set_Lp( double new_Lp ) {
-		my_assert( new_Lp >= 1 );
-        
+		// [Fix] my_assert( new_Lp >= 1 );
+
     	Lp = new_Lp;
     	if ( Lp >= LP_INFINITY ) {
             Lp = LP_INFINITY;
@@ -638,12 +628,12 @@ public:
     	} else {
     		Lq = 1.0 / (1.0 - 1.0/Lp);
     	}
-        
+
         if ( verbosity >= 2 ) {
             Rcout << "\nLp set to " << Lp << " with Lq = " << Lq << endl;
         }
     }
-    
+
 	void print_settings( unsigned int maxitr ) {
 
 		Rcout << "\nParameters used: " << "\n\tobjective fct: " << objective << " (0 = L1LR, 1 = SVM, 2 = Hinge w/ Lasso)\n\tT: " << maxitr
@@ -661,8 +651,8 @@ public:
         << "\n\tFile Mode: " << FILE_INPUT_MODE << " (single file = " << SINGLE_FILE << ")"<< endl;
         Rcout.flush();
 	}
-    
-    
+
+
 	/*
 	 * Print out the loss for each document.  Also print out total loss (with penalty).
 	 */
@@ -670,7 +660,7 @@ public:
 		LONG_DOUBLE loss = 0;
 		LONG_DOUBLE tloss;
 		Rcout << "n\ty\txbeta\t\tloss" << endl;
-        
+
 		for ( unsigned int i = 0; i < corpus.size(); i++ ) {
 			// Compute loss.
 			tloss = 0;
@@ -696,7 +686,7 @@ public:
 			Rcout  << i << "\t" << y[i] << "\t" << sum_betas[i] << "\t" << tloss << endl;
 		}
 		Rcout << "Total loss: " << loss << endl;
-        
+
 		if ( print_cache ) {
 			Rcout << "Feature cache betas:" << endl;
 			if ( features_cache.empty() ) {
@@ -717,7 +707,7 @@ public:
 	}
 
 
-    
+
 	/**
 	 * Calculate some summary statistics for the given feature 'rule'
 	 */
@@ -742,13 +732,13 @@ public:
         //	float odds = (float)pos_count * ((float)(num_neg - neg_count)) / ( neg_count * ((float)(num_pos - pos_count ) ) );
 	//	float word_per = (float)pos_word_count / (rule->total_support);
 		//float word_odds = (float)pos_word_count * ((float)(rule->total_support - neg_word_count)) / ( neg_word_count * ((float)(rule->total_support - pos_word_count ) ) );
-        
+
 		os << setprecision(3) << beta << '\t' << rule->Z << '\t'  << setprecision(3) << (beta / rule->Z) << '\t' << rule->total_support << "\t" << rule->total_docs << "\t";
 		os << pos_count << '\t' << neg_count << '\t' << setprecision(3) << per << '\t' << setprecision(3) << perpos << '\t' << setprecision(3) << perneg << '\t';
 	//	os << pos_word_count << '\t' << neg_word_count << '\t' << setprecision(3) << word_per << '\t';
 		os << rule->ngram << endl;
 	}
-    
+
 	/**
 	 * Print out all the rules in the model with details about those rules
 	 * in a tab-separated form.
@@ -764,7 +754,7 @@ public:
 		os << "beta\tZ\tweight\tsupport\tdoc_sup\tpos\tneg\tper\tperpos\tperneg\tpos w\tneg w\tper w\tngram\n";
 		// negative ones only
 		for(std::map<string,LONG_DOUBLE>::iterator iter = model.begin(); iter != model.end(); ++iter) {
-			my_assert( used_rule_cache.count( iter->first )  > 0 );
+			// [Fix] my_assert( used_rule_cache.count( iter->first )  > 0 );
 			space_t *rule = used_rule_cache[iter->first];
 			//rule->debug_print_support();
 			if ( iter->second <= 0 ) {
@@ -778,9 +768,9 @@ public:
 				print_rule_stats( rule, iter->second, os );
 			}
 		}
-        
+
 	}
-    
+
 
 	/**
 	 * Make Rcpp List of all the updates (time series of path taken)
@@ -818,7 +808,7 @@ public:
 
 		int cntr = 0;
 		for(std::map<string,LONG_DOUBLE>::iterator iter = model.begin(); iter != model.end(); ++iter) {
-			my_assert(  used_rule_cache.count( iter->first )  > 0 );
+			// [Fix] my_assert(  used_rule_cache.count( iter->first )  > 0 );
 			space_t *rule = used_rule_cache[iter->first];
 
 			rulesV[ cntr ] = rule->to_Rcpp_list();
@@ -845,7 +835,7 @@ public:
 		//, posWordCountV, negWordCountV;
 
 		for(std::map<string,LONG_DOUBLE>::iterator iter = model.begin(); iter != model.end(); ++iter) {
-					my_assert( used_rule_cache.count( iter->first )  > 0 ); // "make_full_model_dataframe number of rules is more than 0",
+					// [Fix] my_assert( used_rule_cache.count( iter->first )  > 0 ); // "make_full_model_dataframe number of rules is more than 0",
 					space_t *rule = used_rule_cache[iter->first];
 					LONG_DOUBLE beta = iter->second;
 
@@ -897,19 +887,19 @@ public:
 			os << iter->second << '\t' << iter->first << endl;
 		}
 	}
-    
-    
-    
-    
-    
+
+
+
+
+
 	void print_ban_list(std::ostream &os) {
 		for(std::set<string>::iterator iter = banned_words.begin();
             iter != banned_words.end(); ++iter) {
 			os << *iter << "\n";
 		}
 	}
-    
-    
+
+
 
 
 
@@ -989,17 +979,17 @@ public:
 			Rcout.flush();
 		}
 
-		my_assert( labelV.size() == line_cntr ); //"right number of labels",
+		// [Fix] my_assert( labelV.size() == line_cntr ); //"right number of labels",
 		return true;
 	}
 
 
-    
-    
+
+
     void finish_initializing() {
 		num_pos = 0;
         num_neg = 0;
-        my_assert( y.size() == corpus.size() ); // "label vec match corp size",
+        // [Fix] my_assert( y.size() == corpus.size() ); // "label vec match corp size",
 
         for ( unsigned int i = 0; i < y.size(); i++ ) {
             if (y[i] == 1) num_pos++ ;
@@ -1010,7 +1000,7 @@ public:
         	Rcout << "There are " << banned_words.size() << " banned words\n";
 
         	Rcout << "Number of documents = " << corpus.size() << endl;
-        
+
         	Rcout << "\n# positive samples: " << num_pos;
         	Rcout << "\n# negative samples: " << num_neg << "\n";
 
@@ -1018,46 +1008,46 @@ public:
         	Rcout << "( " << (t.tv_sec - t_origin.tv_sec) << " seconds; " << (t.tv_sec - t_origin.tv_sec) / 60.0 << " minutes )\n";
         	Rcout.flush();
         }
-        
-		my_assert(  objective == 0 || objective == 1 || objective == 2 ); //"has valid objective",
-        
-        
-    }
-    
-	   
 
-    
+		// [Fix] my_assert(  objective == 0 || objective == 1 || objective == 2 ); //"has valid objective",
+
+
+    }
+
+
+
+
 	LONG_DOUBLE calc_exp_fraction( LONG_DOUBLE y, LONG_DOUBLE xbeta ) {
 		if (y * xbeta > 8000) {
 			return 0;
 		} else {
 			return  1.0 / (1 + exp(y * xbeta ));
 		}
-        
+
 	}
-    
-    
+
+
 	// compute gradient of given featue 'space' at xbeta_0 without including the regularization terms
 	// loc is list of documents that have a specific feature
 	space_t *calc_gradient( space_t *space, std::vector<LONG_DOUBLE> &xbeta_0  ) {
 		LONG_DOUBLE dbeta = 0.0;
-        
+
 		if ( verbosity > 4 ) {
 			Rcout << "Calc gradient of " << space->ngram << endl;
 		}
-		my_assert( space->isConverted() ); // "calc gradient using converted space",
-        
+		// [Fix] my_assert( space->isConverted() ); // "calc gradient using converted space",
+
 		vector<int> &weights = space->weight;
 		std::vector <unsigned int>& support = space->doc_support;
-        
+
 		space->gradient = 0;
 		space->upos = 0;
 		space->uneg= 0;
-        
+
 		// Compute the gradient and the upper bound on gradient of extensions.
 		for (unsigned int i = 0; i < support.size(); ++i) {
 			unsigned int j = support[i];
-            
+
 			// Choose objective function. 0: SLR, 1: SVM.
 			if (objective == 0) { //SLR
 				// From differentiation we get a - in front of the sum_i_to_N
@@ -1136,7 +1126,7 @@ public:
 		}
 		return space;
 	}
-    
+
 
 
 	// compute gradient for intercept
@@ -1150,26 +1140,26 @@ public:
 				// From differentiation we get a - in front of the sum_i_to_N
 				grad -= sc * calc_exp_fraction( y[j], xbeta_vector[j] );
 			} //end SLR
-            
+
 			if (objective == 1) { //L1-SVM (Hinge loss)
 				if (1 - y[j] * xbeta_vector[j] > 0) {
 					grad -= sc;
 				}
 			} //end SVM
-            
+
 			if (objective == 2) { //L2-SVM
 				if (1 - y[j] * xbeta_vector[j] > 0) {
 					grad -= 2 * sc * (1 - y[j] * xbeta_vector[j]);
 					//Rcout << j << "\t" << y[j] << "\t" << xbeta_vector[j] << "\t" << (-2 * y[j] * (1 - y[j] * xbeta_vector[j])) << "\t" << grad << endl;
 				}
 			} //end SVM
-            
+
 		}
 		return grad;
 	}
-    
-    
-    
+
+
+
 	void print_diagnostics_for_prune( space_t *space ) {
 		Rcout << "\ncurrent ngram rule: '" << space->ngram << "'";
 		Rcout << "\n\tlocation size: " << space->total_support;
@@ -1180,32 +1170,32 @@ public:
 		Rcout << "\n\tuneg (before regularizer): " << space->uneg;
 		Rcout << "\n\ttau: " << tau << endl;
 	}
-    
-    
+
+
 	void update_best_rule( space_t *space ) {
 		if (verbosity >= 3) {
 			Rcout << "updating current best ngram rule to " << space->ngram << " \tgradient: " << space->gradient << "\n";
 		}
-        
+
 		rewritten++;
-        
+
 		tau = std::abs(space->gradient) + TINY_WEIGHT;
 		rule = space;
 	}
-    
+
 	void update_best_rule_to_intercept( LONG_DOUBLE gradient ) {
 		tau = std::abs(gradient) + TINY_WEIGHT;
 		int_rule.gradient = gradient;
 		rule = &int_rule;
 	}
-    
-    
-    
+
+
+
 	int calc_sign( LONG_DOUBLE val ) {
 		return val > 0 ? +1 : (val < 0 ? -1 : 0);
 		//		abs(features_it->second)/features_it->second
 	}
-    
+
 	/*
 	 * Shrink val amount to 0, but stick at 0 if needed.
 	 */
@@ -1218,8 +1208,8 @@ public:
 			return 0;
 		}
 	}
-    
-    
+
+
 	LONG_DOUBLE penalize( LONG_DOUBLE grad, LONG_DOUBLE beta, LONG_DOUBLE alpha, LONG_DOUBLE C ) {
 		if ( beta == 0 ) {
 			return shrink_to_zero( grad, alpha*C );
@@ -1229,10 +1219,10 @@ public:
 			return grad + C*alpha + (1-alpha)*beta;
 		}
 	}
-    
-    
-    
-    
+
+
+
+
 	/*
 	 * For current ngram, compute the gradient value and update the current optimal ngram
 	 * if current one ('space') is better.
@@ -1241,17 +1231,17 @@ public:
 	 */
 	void calc_gradient_and_update( space_t *space, map<string, LONG_DOUBLE>::iterator cur_beta ) {
 		total++;
-        
-		my_assert( space->isConverted() );// "calc-and-update using converted space",
-		my_assert( space->total_support >= minsup );
-        
+
+		// [Fix] my_assert( space->isConverted() );// "calc-and-update using converted space",
+		// [Fix] my_assert( space->total_support >= minsup );
+
 		if ( verbosity > 4 ) {
 			space->print_space();
 		}
-        
+
 		// calc gradient for current ngram, _not_ including regularization
 		calc_gradient(space, sum_best_xbeta );
-        
+
 		// now include regularization, if needed
 		if ( C != 0 ) {
 			if ( cur_beta != features_cache.end() && cur_beta->second != 0 ) {
@@ -1263,7 +1253,7 @@ public:
 				//Rcout << "shrinking gradient: " << space->gradient << "\t" << alpha << "\t" << C << endl;
 				space->gradient = shrink_to_zero( space->gradient, alpha*C );
 			}
-            
+
 			if (verbosity > 3) {
 				Rcout << "gradient after regularizer: " << space->gradient << endl;
 			}
@@ -1271,20 +1261,20 @@ public:
 				print_diagnostics_for_prune( space );
 			}
 		}
-        
+
 		if ( (space->size >= minpat) && (std::abs (space->gradient) > tau)) {
 			if ( !pos_only || space->gradient < 0 || (cur_beta != features_cache.end() ) ) {
 				update_best_rule( space );
 			}
 		}
 	}
-    
+
 	void calc_gradient_and_update( space_t *space ) {
 		calc_gradient_and_update( space, features_cache.end() );
 	}
-    
-    
-    
+
+
+
 	/**
 	 * Go through current model and calculate gradient for each non-zero feature
 	 * and update current best gradient.
@@ -1295,25 +1285,25 @@ public:
 	void check_model_features() {
 		map<string, LONG_DOUBLE>::iterator feat_it = features_cache.begin();
 		for ( feat_it = features_cache.begin(); feat_it != features_cache.end(); feat_it++ ) {
-			my_assert( used_rule_cache.count( feat_it->first )  > 0 );
+			// [Fix] my_assert( used_rule_cache.count( feat_it->first )  > 0 );
 			space_t *space = used_rule_cache[ feat_it->first ];
-            
+
 			calc_gradient_and_update( space, feat_it );
 		}
 	}
-    
-    
+
+
 	// For current ngram, check pruning conditions for its AT-ZERO children
 	// (any children already in model will be automatically checked at start of cycle)
 	bool can_prune (space_t *space ) {
-        
+
 		// Assume we can prune all the children until bound says otherwise.
 		bool flag_can_prune = 1;
-        
+
 		if ( std::max (space->upos, space->uneg) - C*alpha > tau ) {
 			flag_can_prune = 0;
 		}
-        
+
 		if ( flag_can_prune ) {
 			++pruned;
 			if (verbosity > 3) {
@@ -1324,11 +1314,11 @@ public:
 			return false;
 		}
 	}
-    
-    
-    
-    
-    
+
+
+
+
+
 	/**
 	 * This method expands a ngram and discovers all its children.
 	 *
@@ -1348,28 +1338,28 @@ public:
 		// Candidates obtained by extension.
 		std::map<string, space_t> candidates;
 		std::vector <int>& loc = space->get_loc();
-        
+
 		if ( verbosity > 4 ) {
 			Rcout << "\nFinding candidates for " << space->ngram << endl;
 		}
-        
+
 		// Iterate through the inverted index of the current feature.
 		for (unsigned int i = 0; i < loc.size(); ++i) {
-            
+
 			// check if starting new document.  Stash document id if so.
 			if (loc[i] < 0) {
 				docid = (unsigned int)(-loc[i]) - 1;
 				//Rcout << "\ndocid: " << docid << " with size " << corpus[docid].size();
 				continue;
 			}
-            
+
 			// the start position of this unigram in the document
 			unsigned int pos = loc[i];
-            
+
 			string next_unigram;
 			// If not re-initialized, it should fail.
 			unsigned int pos_next_unigram = 0;
-            
+
 			//Rcout << "\npos: " << pos;
 			if (pos < corpus[docid].size() - 1) {
 				//Rcout << "\npotential extension...";
@@ -1411,17 +1401,17 @@ public:
 						} else continue;
 					}
 				}
-                
+
 				// if token is not banned
 				if ( banned_words.count( next_unigram ) == 0 ) {
-                    
+
 					// make sure the token itself is not too rare, since if it were then the multi-token expression would be even more rare.
 					if (minsup == 1 || single_node_minsup_cache.find (next_unigram) != single_node_minsup_cache.end()) {
 						// next line can potentially add a new candidate, or append an existing one.
 						//Rcout << "candidate added: +'" << next_unigram << "' doc#" << docid << " - pos#" << pos_next_unigram << endl;
 						candidates[next_unigram].add (docid, pos_next_unigram);
 					}
-                    
+
 					if (maxgap && space->num_consec_gaps() < maxgap ) {
 						// If we allow gaps, we treat a gap as an additional unigram "*".
 						// Its inverted index will simply be a copy pf the inverted index of the original features.
@@ -1434,9 +1424,9 @@ public:
 		}
 		return candidates;
 	} // end find_candidates
-    
-    
-    
+
+
+
 	/*
 	 * Drop the locations of the ngram 'space' and add all of its ngram children
 	 * as leaves to its tree, if those children have enough support.
@@ -1448,35 +1438,35 @@ public:
 		// Keep only doc_ids for occurrences of current ngram.
 		space->shrink ();
 		std::vector <space_t *>& children = space->children;
-        
+
 		for (std::map <string, space_t >::iterator it = candidates.begin();
              it != candidates.end(); ++it) {
-            
+
 			if ( it->second.total_support >= minsup ) {
 				space_t* c = new space_t( it->second, space, it->first );
 				total_nodes++;
-                
+
 				children.push_back (c);
 			}
 		}
-        
+
 		if (children.empty()) {
 			children.push_back (0);
 		}
 		std::vector<space_t *>(children).swap (children);
 	}
-    
-    
-    
+
+
+
 	void check_child( space_t *child, std::vector<space_t *>& new_space ) {
-        
+
 		if ( !child->isConverted() ) {
 			if ( verbosity > 3 ) {
 				Rcout << "Converting space and calculating support and weights for " << child << "\n";
 			}
 			child->calc_support_weights( Lp, binary_features, no_regularization );
 		}
-        
+
 		if ( child->total_support < minsup ) {
 			return;
 		}
@@ -1497,16 +1487,16 @@ public:
 			// first check to see if we are the new best bet.
 			calc_gradient_and_update( child, features_it );
 		}
-        
+
 		// Now if our children have potential, enter ourself in to next round of expansions.
 		// We will do the gradient check for pruning later.
 		if ( child->size < maxpat ) {
 			new_space.push_back (child);
 		}
 	}
-    
-    
-    
+
+
+
 	// 'space' is the parent ngram which has already been checked for being best, and so forth.
     // We are supposed to be examining all of 'space's children as one part of the bfs level traversal.
 	// First step is to see if we can cut all of 'space's children and skip a bunch of work.
@@ -1514,77 +1504,77 @@ public:
 	// (We are being lazy and calc'ing if we can prune as late as possible so the current best gradient can be the biggest)
 	// The growth is done breadth-first rather than depth-first, e.g. grow all bi-grams, than all tri-grams, etc.
 	void span_bfs (space_t *space, std::vector<space_t *>& new_space, unsigned int size) {
-        
+
 		// can we prune all our children right away?
 		if ( can_prune( space ) ) {
 			return;
 		}
-        
+
 		std::vector <space_t *>& children = space->children;
-        
+
 		// MEMORY VERSION
 		if ( children.empty() ) {
 			// compute all possible candidate extensions.  These are our children.
 			std::map<string, space_t> candidates = find_candidates( space );
 			extend_space_tree( space, candidates );
 		}
-        
+
 		if (children.size() == 1 && children[0] == 0) {
 			// we have extended before, and found no viable children.  Bail.
 			return;
 		}
-        
+
 		// Iterate through all our children, see if any are good.  Enter them into the next level
 		// of the bfs if they have potential.
 		for (std::vector<space_t*>::iterator it = children.begin(); it != children.end(); ++it) {
 			check_child( (*it), new_space );
 		}
-        
+
 		// Recalc every time version
 		// compute all possible candidate extensions
 		/*		std::map<string, space_t> candidates = find_candidates( space );
          for (std::map <string, space_t >::iterator it = candidates.begin();	it != candidates.end(); ++it) {
-         
+
          if ( check_child( it->second, new_space, size ) ) {
-         
+
          space_t* c = new space_t( space, it->first );
          total_nodes++;
          c->loc = it->second.loc;
          std::vector<int>(c->loc).swap(c->loc);
-         
+
          children.push_back (c);
-         
+
          //Rcout << "\nnode extended: " << space->ne;
          //Rcout << "\nnode for extention: " << it->first;
          }
-         
+
          if (children.empty()) {
          children.push_back (0);
          }
          std::vector<space_t *>(children).swap (children);
          }
          for (std::vector<space_t*>::iterator it = children.begin(); it != children.end(); ++it) {
-         
+
          }
          }
          */
 	} //end span_bfs
-    
-    
-    
-    
-    
-    
-    
+
+
+
+
+
+
+
 	// Try to grow the ngram to next level, and prune the appropriate extensions.
 	// The growth is done deapth-first rather than breadth-first, e.g. grow each candidate to its longest unpruned sequence
 	void span_dfs (space_t *space, unsigned int size) {
-        
+
 		Rcerr << "WARNING: span_dfs is NOT UPDATED FUNCTION" << endl;
-        
+
 	}
-    
-    
+
+
 	/**
 	 * Calc penalty regularazation term.
 	 * If new_beta_coef and old_beta_coef are not 0, then it will add new and subtract old from the sums of betas
@@ -1596,10 +1586,10 @@ public:
 		} else {
 			return C * (alpha * (sum_abs_betas - abs(old_beta_coef) + abs(new_beta_coef))
                         + (1 - alpha) * 0.5 * (sum_squared_betas - pow(old_beta_coef, 2) + pow(new_beta_coef, 2)));
-            
+
 		}
 	}
-    
+
 	/* calculates loss given (1) the prediction vector of X'b and
      *	(2) the currently-being-updated feature as indicated by features_it and delta_beta.
      *
@@ -1619,7 +1609,7 @@ public:
 			delt = 0;
 			if (objective == 0) { //SLR
 				exp_fraction[i] = calc_exp_fraction( y[i], sum_betas[i] );
-                
+
 				if (-y[i] * sum_betas[i] > 8000) {
 					delt = log(LDBL_MAX);
 				} else {
@@ -1655,11 +1645,11 @@ public:
 				loss = loss + calc_penalty( sum_abs_betas, sum_squared_betas, new_beta_coef, features_it->second );
 			}
 		}// end handling possible regularization.
-        
+
 		return loss;
 	}
-    
-    
+
+
 	/**
 	 * No longer used.
 	 * Don't understand dependence on n --- summing over all docs.  Also, why not just look at beta itself?
@@ -1678,8 +1668,8 @@ public:
 		}
 		return current_range_size;
 	}
-    
-    
+
+
 	// Calculate the CHANGE in beta for a specific feature r given the xbeta vector
 	//
 	// Consider two beta vectors beta^a and beta^b that differ only on rule r.  I.e.
@@ -1696,7 +1686,7 @@ public:
 		return rule.Z * (xbeta[rule.doc_support[0]] - xbeta_00) / rule.weight[0];
 		// incorp Zs
 	}
-    
+
 	// Search for the beta in the range beta_n-1, beta_mid_n-1_n, beta_n, beta_mid_n_n+1, beta_n+1
 	// that minimizes the objective function. It suffices to compare the 3 points beta_mid_n-1_n, beta_n, beta_mid_n_n+1,
 	// as the min cannot be achieved at the extreme points of the range.
@@ -1724,39 +1714,39 @@ public:
                          LONG_DOUBLE &xbeta_00,
                          vector<LONG_DOUBLE>* sum_best_beta_opt,
                          bool penalize ) {
-        
+
 		vector<LONG_DOUBLE> sum_best_beta_mid_n0_n1(corpus.size());
 		vector<LONG_DOUBLE> sum_best_beta_mid_n1_n2(corpus.size());
-        
+
 		LONG_DOUBLE min_range_size = 1e-4;
 		//LONG_DOUBLE current_range_size = 0;
 		int current_interpolation_iter = 0;
-        
+
 		LONG_DOUBLE loss_mid_n0_n1 = 0;
 		LONG_DOUBLE loss_mid_n1_n2 = 0;
 		LONG_DOUBLE loss_n1 = 0;
-        
+
 		//current_range_size = calc_current_range( sum_best_beta_n0, sum_best_beta_n2 );
-        
+
 		LONG_DOUBLE beta_coef_n0 = extract_delta_beta( rule, sum_best_beta_n0, xbeta_00 );
 		LONG_DOUBLE beta_coef_n1 = 0;
 		LONG_DOUBLE beta_coef_mid_n0_n1 = 0;
 		LONG_DOUBLE beta_coef_mid_n1_n2 = 0;
 		LONG_DOUBLE beta_coef_n2 = extract_delta_beta( rule, sum_best_beta_n2, xbeta_00 );
-        
+
 		map<string, LONG_DOUBLE>::iterator features_it = features_cache.find(rule.ngram);
-        
+
 		if ( step_verbosity > 3 ) {
 			Rcout << "beta_coef n0 = " << beta_coef_n0 << "\nbeta_coef_n2 = " << beta_coef_n2 << endl;
 		}
-        
+
 		// Start interpolation loop.
 		while (abs( beta_coef_n2 - beta_coef_n0 ) > min_range_size ) {
-            
+
 			if (step_verbosity > 3) {
 				Rcout << "\nCurrent interpolation iteration: " << current_interpolation_iter;
 			}
-            
+
 			for (unsigned int i = 0; i < corpus.size();  ++i) { //loop through training samples
 				sum_best_beta_mid_n0_n1[i] = (sum_best_beta_n0[i] + sum_best_beta_n1[i]) / 2;
 				sum_best_beta_mid_n1_n2[i] = (sum_best_beta_n1[i] + sum_best_beta_n2[i]) / 2;
@@ -1765,18 +1755,18 @@ public:
 				Rcout << "\nsum_best_beta_mid_n0_n1[0]: " << sum_best_beta_mid_n0_n1[0];
 				Rcout << "\nsum_best_beta_mid_n1_n2[0]: " << sum_best_beta_mid_n1_n2[0];
 			}
-            
+
 			if ( C != 0) {
 				beta_coef_n1 = extract_delta_beta( rule, sum_best_beta_n1, xbeta_00 );
 				beta_coef_mid_n0_n1 = extract_delta_beta( rule, sum_best_beta_mid_n0_n1, xbeta_00 );
 				beta_coef_mid_n1_n2 = extract_delta_beta( rule, sum_best_beta_mid_n1_n2, xbeta_00 );
 			}
-            
+
 			loss_n1 = calc_loss( sum_best_beta_n1, features_it, beta_coef_n1, penalize );
 			loss_mid_n0_n1 = calc_loss( sum_best_beta_mid_n0_n1, features_it, beta_coef_mid_n0_n1, penalize );
 			loss_mid_n1_n2 = calc_loss( sum_best_beta_mid_n1_n2, features_it, beta_coef_mid_n1_n2, penalize );
-            
-            
+
+
 			// Focus on the range that contains the minimum of the loss function.
 			// Compare the 3 points beta_n, and mid_beta_n-1_n and mid_beta_n_n+1.
 			if (loss_n1 <= loss_mid_n0_n1 && loss_n1 <= loss_mid_n1_n2) {
@@ -1807,9 +1797,9 @@ public:
 				sum_best_beta_n0.assign(sum_best_beta_n1.begin(), sum_best_beta_n1.end());
 				sum_best_beta_n1.assign(sum_best_beta_mid_n1_n2.begin(), sum_best_beta_mid_n1_n2.end());
 			}
-            
+
 			++current_interpolation_iter;
-            
+
 			// comment: changed so we converge when the beta coef endpoints gets close.
 			// the calc_current_range depends on n, and seems weird to me.  Am I missing something?
 			beta_coef_n0 = extract_delta_beta( rule, sum_best_beta_n0, xbeta_00 );
@@ -1819,17 +1809,17 @@ public:
 			}
 			//current_range_size = calc_current_range( sum_best_beta_n0, sum_best_beta_n2 );
 		} // end while loop.
-        
-        
+
+
 		if ( step_verbosity > 3 ) {
 			Rcout << "Finishing find_best_range and assigning midpoint to sum_best_beta_opt" << endl;
 			Rcout << "The midpoint of the range found\n";
 			print_estimates( sum_best_beta_n1, 1 );
 		}
-        
+
 		// Keep the middle point of the best range.
 		sum_best_beta_opt->assign(sum_best_beta_n1.begin(), sum_best_beta_n1.end() );
-        
+
 		//sum_best_beta_opt->clear();
 		//for (unsigned int i = 0; i < transaction.size();  ++i) {
 		//	sum_best_beta_opt->push_back(sum_best_beta_n1[i]);
@@ -1838,10 +1828,10 @@ public:
 		//}
 		//Rcout << "\n end find_best_range()!";
 	} // end find_best_range().
-    
-    
-    
-    
+
+
+
+
 	// looking at moving along feature as defined by rule
 	// find three points, n0, n1, n2 with the minimum loss somewhere in that range
 	void find_bracketing_range( space_t &rule,
@@ -1853,29 +1843,29 @@ public:
 		LONG_DOUBLE exponent = ceil(log10(abs(rule.gradient)));
 		LONG_DOUBLE epsilon = min((float)1e-3, pow((float)10, (float)-exponent));
 		LONG_DOUBLE step = 0.0;
-        
+
 		if (step_verbosity > 3) {
 			Rcout << "\nrule.ngram: " << rule.ngram << "\nrule.gradient: " << rule.gradient << "\nexponent of epsilon: " << -exponent << "\nepsilon: " << epsilon << endl;
 		}
-        
+
 		// To Keep track of loss at the three points, n0, n1, n2.
 		LONG_DOUBLE loss_n0 = 0;
 		LONG_DOUBLE loss_n1 = 0;
 		LONG_DOUBLE loss_n2 = 0;
-        
+
 		// Binary search for epsilon. Similar to bracketing phase in which
 		// we search for some range with promising epsilon.
 		// The second stage finds the epsilon or corresponding weight vector with smallest l2-loss value.
-        
+
 		// As long as the l2-loss decreases, double the epsilon.
 		// Keep track of the last three values of beta, or correspondingly
 		// the last 3 values for the scalar product of beta and xi.
 		int n = 0;
-        
+
 		// find prev incarnation of rule
 		map<string, LONG_DOUBLE>::iterator  features_it = features_cache.find(rule.ngram);
 		loss_n1 = loss_n2 = calc_loss( sum_best_beta_n1, features_it, 0, true );
-        
+
 		// find current beta for rule to check crossing 0 boundary
 		LONG_DOUBLE old_beta_Z = 0.0;
 		if ( features_it != features_cache.end() ) {
@@ -1907,24 +1897,24 @@ public:
 			if (step_verbosity > 5 ) {
 				Rcout << "sum_best_beta_n0[rule.doc_support[0]: " << sum_best_beta_n0[rule.doc_support[0]] << "\nsum_best_beta_n1[rule.doc_support[0]: " << sum_best_beta_n1[rule.doc_support[0]] << "\nsum_best_beta_n2[rule.doc_support[0]: " << sum_best_beta_n2[rule.doc_support[0]] << endl;
 			}
-            
+
 			loss_n0 = loss_n1;
 			loss_n1 = loss_n2;
 			loss_n2 = calc_loss( sum_best_beta_n2, features_it, beta_coeficient_update_Z * rule.Z, penalize );
-            
+
 			if (step_verbosity > 5 ) {
 				Rcout << "loss_n0: " << loss_n0 << "\nloss_n1: " << loss_n1 << "\nloss_n2: " << loss_n2 << endl;
 			}
 			++n;
 		} while (!hit_wall && loss_n2 < loss_n1);
-        
-        
+
+
 		if (step_verbosity > 3) {
 			Rcout << "Finished doubling epsilon! The monotonicity loss_n+1 < loss_n is broken! Reached iter #" << n << "\n";
 			Rcout << "\tfinal losses: loss_n0: " << loss_n0 << "\tloss_n1: " << loss_n1 << "\tloss_n2: " << loss_n2 << endl;
 			Rcout << "\txbeta_00s: " << sum_best_beta_n0[rule.doc_support[0]] << "\t" << sum_best_beta_n1[rule.doc_support[0]] << "\t" << sum_best_beta_n2[rule.doc_support[0]] << endl;
 		}
-        
+
 		// if we immediately passed low point, set n1 to midpoint of n0 and n2 so we have different points
 		// (currently n1 = n0)
 		if ( n == 1 ) {
@@ -1936,16 +1926,16 @@ public:
 				Rcout << "Adjusted n1 to be midpoint of n0 and n2 due to only having 1 iteration" << endl;
 				Rcout << "\trevised losses: loss_n0: " << loss_n0 << "\tloss_n1: " << loss_n1 << "\tloss_n2: " << loss_n2 << endl;
 				Rcout << "\txbeta_00s: " << sum_best_beta_n0[rule.doc_support[0]] << "\t" << sum_best_beta_n1[rule.doc_support[0]] << "\t" << sum_best_beta_n2[rule.doc_support[0]] << endl;
-                
+
 			}
-            
+
 		}
-        
-        
+
+
 	}
-    
-    
-    
+
+
+
 	// Line search method. Binary search for optimal step size. Calls find_best_range(...).
 	// sum_best_beta will get set to the scalar product beta_best^t*xi for each doc xi.
 	// Instead of working with the new weight vector beta_n+1 obtained as beta_n - epsilon * gradient(beta_n)
@@ -1957,29 +1947,29 @@ public:
 	// rule contains info about the gradient at the current iteration
 	// xbeta_0 is the Xbeta vector (one value for each document) of the starting point.
 	void binary_line_search(space_t& rule, vector<LONG_DOUBLE>& xbeta_0, vector<LONG_DOUBLE>* sum_best_beta_opt) {
-        
+
 		// Keep track of scalar product at points beta_n-1, beta_n and beta_n+1.
 		// They are denoted with beta_n0, beta_n1, beta_n2.
 		vector<LONG_DOUBLE> sum_best_beta_n0(xbeta_0);
 		vector<LONG_DOUBLE> sum_best_beta_n1(xbeta_0);
 		vector<LONG_DOUBLE> sum_best_beta_n2(xbeta_0);
-        
+
 		find_bracketing_range( rule, sum_best_beta_n0, sum_best_beta_n1, sum_best_beta_n2, rule.penalize, pos_only );
-        
+
 		if ( step_verbosity > 3 ) {
 			// print out the three bracketing vectors
 			for ( unsigned int i = 0; i < corpus.size(); i++ ) {
 				Rcout << sum_best_beta_n0[i] << "\t" << sum_best_beta_n1[i] << "\t" << sum_best_beta_n2[i] << endl;
 			}
 		}
-        
-        
+
+
 		find_best_range(sum_best_beta_n0, sum_best_beta_n1, sum_best_beta_n2,
                         rule, xbeta_0[rule.doc_support[0]], sum_best_beta_opt, rule.penalize);
-        
+
 	} // end binary_line_search().
-    
-    
+
+
 	// Find intercept.  Uses binary line search.  Possibly this function should
 	// be merged into other one.
 	// return the change in the intercept
@@ -1987,56 +1977,56 @@ public:
 		vector<LONG_DOUBLE> sum_best_beta_n0(*sum_best_beta_opt);
 		vector<LONG_DOUBLE> sum_best_beta_n1(*sum_best_beta_opt);
 		vector<LONG_DOUBLE> sum_best_beta_n2(*sum_best_beta_opt);
-        
+
 		//Rcout << "intercept search" << endl;
-        
+
 		// adjust intercept up or down?  Calc gradient
 		int_rule.gradient = calc_int_gradient(*sum_best_beta_opt);
-        
+
 		// find range, no regularization since this is intercept.
 		find_bracketing_range( int_rule, sum_best_beta_n0, sum_best_beta_n1, sum_best_beta_n2, false, false );
-        
+
 		vector<LONG_DOUBLE> sum_best_beta_mid_n0_n1(corpus.size());
 		vector<LONG_DOUBLE> sum_best_beta_mid_n1_n2(corpus.size());
-        
+
 		LONG_DOUBLE xbeta_00 = (*sum_best_beta_opt)[int_rule.doc_support[0]];
 		if ( step_verbosity > 3 ) {
 			Rcout << "Original xbeta_00: " << xbeta_00 << endl;
 		}
 		find_best_range(sum_best_beta_n0, sum_best_beta_n1, sum_best_beta_n2,
                         int_rule, xbeta_00, sum_best_beta_opt, false );
-        
+
 		LONG_DOUBLE int_step = (*sum_best_beta_opt)[int_rule.doc_support[0]] - xbeta_00;
 		if ( step_verbosity > 3 ) {
 			Rcout << "Intercept step found to be " << int_step << endl;
 		}
 		return int_step;
 	} // end intercept_search().
-    
-    
-    
+
+
+
 public:
-    
-    
+
+
 	void make_unigram_list( ) {
-        
+
 		// A map from unigrams to search_space.
 		string unigram;
 		bool at_space = false;
-        
+
 		// Prepare the locations for unigrams.
 		if (verbosity >= 1) {
 			Rcout << "preparing inverted index for unigrams\n";
 			Rcout.flush();
 		}
 		unsigned int l   = corpus.size();
-        
+
 		for (unsigned int docid = 0; docid < l; ++docid) {
 			//Rcout << "\nscanning docid: " << docid << " class y: " << y[docid];
 			if ( verbosity >= 9 ) {
 				Rcout << "doc #" << docid << ": " << ( (corpus[docid].size() < 30) ? corpus[docid] : corpus[docid].substr(0,30)) << endl;
 			}
-            
+
 			for (unsigned int pos = 0; pos < corpus[docid].size(); ++pos) {
 				// Skip white spaces. They are not considered to be unigrams.
 				if (isspace(corpus[docid][pos])) {
@@ -2070,7 +2060,7 @@ public:
 					unigram.clear();
 				}
 			}
-            
+
 			// final unigram of document
 			if (token_type==WORD_TOKEN) {
 				if (!unigram.empty()) {
@@ -2084,27 +2074,27 @@ public:
 				}
 			} //end for transaction.
 		} //end for docid.
-        
+
 		gettimeofday(&t, NULL);
 		if (verbosity >= 1) {
 			Rcout << " ( " << (t.tv_sec - t_origin.tv_sec) << " seconds; " << (t.tv_sec - t_origin.tv_sec) / 60.0 << " minutes )\n";
 			Rcout.flush();
 		}
-        
+
 		if (verbosity >= 1) {
 			Rcout << "\n# distinct unigrams before culling: " << unigrams.size() << endl;
 			Rcout.flush();
 		}
     }
-    
+
     // Drop any unigram with insufficient support.
     // Also build cache of possible phrase extensions.
     void cull_unigram_list() {
-        
-        
+
+
 		// Keep only unigrams above minsup threshold.
 		for (std::map <string, space_t>::iterator it = unigrams.begin (); it != unigrams.end(); ) {
-			
+
             if ( !it->second.isConverted() ) {
                 it->second.calc_support_weights( Lp, binary_features, no_regularization );
             }
@@ -2124,7 +2114,7 @@ public:
 				++it;
 			}
 		}
-        
+
 		gettimeofday(&t, NULL);
 		if (verbosity >= 1) {
 			//			Rcout << "done erasing unigrams without minimal support" << endl;
@@ -2133,9 +2123,9 @@ public:
 			Rcout.flush();
 		}
 	}
-    
-    
-    
+
+
+
 	bool setup_output_file( std::ofstream &os, const char*out_file) {
 		// setup output file
 		os.open (out_file);
@@ -2149,11 +2139,11 @@ public:
 
 		os.setf(std::ios::fixed,std::ios::floatfield);
 		os.precision(12);
-        
+
 		return true;
 	}
-    
-    
+
+
 	/**
 	 * Add ngram step to model
 	 *
@@ -2193,15 +2183,15 @@ public:
 		rule = NULL;
 		//int_rule.gradient = 0;
 		//rule = &int_rule;
-        
+
 		std::vector <space_t*> old_space;
 		std::vector <space_t*> new_space;
-        
+
 		//gettimeofday(&t_start, NULL);
 		pruned = total = rewritten = 0;
 		old_space.clear ();
 		new_space.clear ();
-        
+
 		// start with intercept
 		//int_rule.gradient = calc_int_gradient( sum_best_xbeta );
 		//update_best_rule_to_intercept( int_rule.gradient );
@@ -2209,44 +2199,44 @@ public:
 		//			Rcout << "Starting Point" << endl;
 		//			print_rule( int_rule );
 		//}
-        
-        
+
+
 		// check all features in cache
 		check_model_features();
-        
+
 		if ( verbosity > 2 ) {
 			Rcout << "Searching " << unigrams.size() << " unigrams" << endl;
 		}
-        
+
 		// If BFS traversal.
 		if (traversal_strategy == BFS) {
-            
+
 			// Iterate through unigrams to make first list.
 			for (std::map <string, space_t>::iterator it = unigrams.begin (); it != unigrams.end(); ++it) {
-                
+
 				// TODO: should not need---banned words are already dumped, right?   (but can't due to batch
 				// mode for multiple labelings and different bans.  Think this through later.)
 				if ( banned_words.count(it->second.ne) > 0 ) {
 					continue;
 				}
-                
+
 				space_t *uni = &(it->second);
-                
+
 				map<string, LONG_DOUBLE>::iterator features_it = features_cache.find(uni->ngram);
 				if (features_it == features_cache.end()) {
 					calc_gradient_and_update( uni );
 				}
-                
+
 				old_space.push_back ( uni );
 			}
-            
+
 			// Search for best n-gram. Extend in a bfs fashion,
 			// level per level, e.g., first extend unigrams to bigrams, then bigrams to trigrams, etc.
 			for (unsigned int size = 2; size <= maxpat; ++size) {
 				if ( verbosity > 2 ) {
 					Rcout << "Searching " << old_space.size() << " clusters of " << size << "-grams" << endl;
 				}
-                
+
 				for (unsigned int i = 0; i < old_space.size(); ++i) {
 					span_bfs (old_space[i], new_space, size);
 				}
@@ -2256,33 +2246,33 @@ public:
 				old_space = new_space;
 				new_space.clear ();
 			} // End search for best n-gram.
-            
+
 		} else { // DFS traversal.
 			// Iterate through unigrams and go deep
 			for (std::map <string, space_t>::iterator it = unigrams.begin (); it != unigrams.end(); ++it) {
 				if ( verbosity > 3 ) {
 					Rcout << "Descending from unigram " << it->second.ne << endl;
 				}
-                
+
 				// TODO: should not need---they are already dumped, right?
 				if ( banned_words.count(it->second.ne) > 0 ) {
 					//Rcout << "\tSkipping" << it->second.ngram << endl;
 					continue;
 				}
-                
+
 				space_t *uni = &(it->second);
 				// first check to see if we are the new best bet.
 				map<string, LONG_DOUBLE>::iterator features_it = features_cache.find(uni->ngram);
 				if (features_it == features_cache.end()) {
 					calc_gradient_and_update( &(it->second) );
 				}
-                
+
 				if (!can_prune ( uni )) {
 					span_dfs (uni, 2);
 				}
 			}
 		}
-        
+
 		// Keep best ngram rule.
 		//rule_cache.insert (rule);
 		if (verbosity >= 2) {
@@ -2296,10 +2286,10 @@ public:
 			Rcout << " ( " << t.tv_sec - t_origin.tv_sec << " seconds; " << (t.tv_sec - t_origin.tv_sec) / 60.0 << " minutes )\n";
 		}
 	}
-    
-    
-    
-    
+
+
+
+
 	/**
 	 * Once a step-length is found, add feature to the features cache if it is not there
 	 * and update the sum squared betas and abs betas by the extra step length added to the
@@ -2327,8 +2317,8 @@ public:
 		//	Rcout << "not updating non-penalized feature '" << rule->ngram << "'" << endl;
 		//}
 	}
-    
-    
+
+
 	/**
 	 * Do a single gradient-descent step which consists of:
 	 *    a) Finding the best ngram to update (i.e., find ngram with largest magnitude gradient)
@@ -2337,13 +2327,13 @@ public:
 	 *    The results gets stored in best_beta_opt
 	 */
 	void descend_one_step( unsigned int itr, std::ofstream &os, std::vector < LONG_DOUBLE > &sum_best_beta_opt ) {
-        
+
 		if ( verbosity > 1 ) {
 			Rcout << "\n\n** Descending one step.  Iteration #" << itr << "\n";
 		}
-        
+
 		find_best_ngram();
-        
+
 		if ( verbosity > 3 ) {
 			Rcout << "\nNow Optimizing beta for ngram.\n";
 		}
@@ -2359,85 +2349,85 @@ public:
 			Rcout << "Starting point for sum_best_xbeta:\n";
 			print_estimates( sum_best_xbeta, 1 );
 		}
-        
+
 		// Use line search to detect the best step_length/learning_rate.
 		// The method does binary search for the step length, by using a start parameter epsilon.
 		// It works by first bracketing a promising value, followed by focusing on the smallest interval containing this value.
 		sum_best_beta_opt.clear();
 		binary_line_search( *rule, sum_best_xbeta, &sum_best_beta_opt);
-        
+
 		// The optimal step length as obtained from the line search.
 		LONG_DOUBLE step_length_opt = extract_delta_beta( *rule, sum_best_beta_opt, sum_best_xbeta[rule->doc_support[0]] );
 		if ( verbosity > 3 ) {
 			Rcout << "\nOptimal step length for feature '" << rule->ngram << "' found: " << step_length_opt << endl;
 		}
-        
+
 		// Update the weight of the best n-gram and calc elements of regularization
 		update_cumulative_weights( step_length_opt );
-        
+
 		// calc current loss
 		map<string, LONG_DOUBLE>::iterator features_it = features_cache.end();
-        
+
 		//Rcout << "time now: " << gettimeofday(t, NULL);
-        
+
 		// The optimal step length as obtained from the line search.
 		add_to_model( rule, step_length_opt, os );
-        
+
 		if (verbosity >= 1) {
 			LONG_DOUBLE loss = calc_loss( sum_best_beta_opt, features_it, 0, true );
 			Rcout <<  "\nItr " << itr << " results: size model: " << features_cache.size () << "    rewrite/prune/total: "
             << rewritten << "/" << pruned << "/" << total << " "
             << "   # nodes: " << total_nodes << "\n\tgradient: " << rule->gradient
             << "\n\tstep len: "<< step_length_opt << "\n\tngram: " << rule->ngram;
-            
+
 			LONG_DOUBLE pen = calc_penalty(sum_abs_betas, sum_squared_betas, 0, 0 );
 			Rcout << "\n\tloss + penalty term = " << (loss - pen) << " + " << pen << " = " << loss << endl;
 			Rcout.flush();
 		}
-        
+
 		if (verbosity >= 4 ) {
 			print_out_model( final_model_cache, Rcout );
 			print_estimates( sum_best_beta_opt, 1 );
 		}
 	} // end descend_one_step
-    
-    
+
+
 	/**
 	 * A slashed down version of descend_one_step to just adjust intercept
 	 */
 	void adjust_intercept( unsigned int itr, std::ofstream &os ) {
-        
+
 		if ( verbosity > 1 ) {
 			Rcout << "\n\n** Adjusting intercept.  Iteration #" << itr << "\n";
 		}
-        
+
         //calc intercept
 		LONG_DOUBLE int_step = intercept_search( &sum_best_xbeta );
 		add_to_model( &int_rule, int_step, os );
-        
+
 		map<string, LONG_DOUBLE>::iterator features_it = features_cache.end();
 		if (verbosity > 1) {
 			LONG_DOUBLE loss = calc_loss( sum_best_xbeta, features_it, 0, false );
 			Rcout <<  "\nIntercept Adjust #" << itr << ": " << "\n\tgradient: " << int_rule.gradient << "\n\tstep len: "<< int_step;
-            
+
 			LONG_DOUBLE pen = calc_penalty(sum_abs_betas, sum_squared_betas, 0, 0 );
 			Rcout << "\n\tloss + penalty term = " << (loss - pen) << " + " << pen << " = " << loss << endl;
 			Rcout.flush();
-            
+
 			if (verbosity >= 4 ) {
 				Rcout << "printing final cache" << endl;
 				print_out_model( final_model_cache, Rcout );
 				Rcout << "printing best beta opt" << endl;
 				print_estimates( sum_best_xbeta, 1 );
 				Rcout << "done printing best beta opt" << endl;
-                
+
 			}
 		}
-        
+
 	} // end adjust_intercept
-    
-    
-    
+
+
+
 	LONG_DOUBLE calc_convergence_rate( vector<LONG_DOUBLE>& xbeta_t0, vector<LONG_DOUBLE>& xbeta_t1 ) {
 		// calc some stats to determine convergence
 		LONG_DOUBLE sum_abs_scalar_prod_diff = 0;
@@ -2448,30 +2438,30 @@ public:
 			// Compute the sum of per document scalar product at current iteration.
 			sum_abs_scalar_prod += abs(xbeta_t1[k]);
 		}
-        
+
 		if ( verbosity > 0 ) {
 			Rcout << "Convergence rate: " <<  sum_abs_scalar_prod_diff << " / (1+" << sum_abs_scalar_prod << ") = " << (sum_abs_scalar_prod_diff / (1 + sum_abs_scalar_prod)) << endl;
 		}
-        
+
 		// Set the convergence rate as in paper by Madigan et al on BBR.
 		return sum_abs_scalar_prod_diff / (1 + sum_abs_scalar_prod);
-        
+
 	}
-    
-    
+
+
     void initialize_run() {
         // All beta coeficients are zero when starting.
         sum_squared_betas = 0;
         sum_abs_betas = 0;
-        
+
         unsigned int l = corpus.size();
-        
+
         // The starting point is beta = (0, 0, 0, 0, .....).
         sum_best_xbeta.resize(l);
         std::fill(sum_best_xbeta.begin(), sum_best_xbeta.end(), 0.0);
         exp_fraction.resize (l);
         std::fill (exp_fraction.begin(), exp_fraction.end(), 1.0 /2.0);
-        
+
         // intercept is a rule with a weight of 1 on all the documents.
         int_rule.ngram = INTERCEPT_STRING;
         int_rule.doc_support.resize(l);
@@ -2484,34 +2474,34 @@ public:
         int_rule.total_support = l;
         int_rule.total_docs = l;
         int_rule.Z = 1;
-       
+
     }
-    
+
 	bool run (const char *out_file,
               unsigned int maxitr ) {
-        
-        
+
+
         if ( verbosity > 0 ) {
         	print_settings( maxitr );
         }
-        
+
         std::ofstream os;
 		std::ofstream final_os;
         bool write_to_file = out_file != NULL;
 
     	tau         = 0.0;
 		total_nodes = 0;
-        
+
         initialize_run();
-        
-        
+
+
 		Rcout.setf(std::ios::fixed,std::ios::floatfield);
 		Rcout.precision(8);
-        
+
 		if ( verbosity > 0 ) {
 			Rcout << "Beginning run\n";
 		}
-        
+
 		if ( write_to_file ) {
 
 			string dtxt = string(".txt");
@@ -2537,20 +2527,20 @@ public:
         used_rule_cache.clear();
         final_model_cache.clear();
         features_cache.clear();
-        
+
         gettimeofday(&t_origin, NULL);
-       
+
 		LONG_DOUBLE convergence_rate;
-        
-        
+
+
 		// Compute loss with start beta vector.
 		map<string, LONG_DOUBLE>::iterator features_it = features_cache.end();
 		LONG_DOUBLE loss = calc_loss( sum_best_xbeta, features_it, 0, false );
 		if (verbosity >= 1) {
 			Rcout << "start loss: " << loss << endl;
 		}
-        
-        
+
+
 /*		// Iterate through unigrams to set them up.
 		for (std::map <string, space_t>::iterator it = unigrams.begin (); it != unigrams.end(); ++it) {
             space_t *uni = &(it->second);
@@ -2558,26 +2548,26 @@ public:
 		}
   */
 		std::vector < LONG_DOUBLE > 				sum_best_beta_opt;
-        
-        
+
+
 		//Rcout << "\nstart iterations... ";
 		// Loop for number of given optimization iterations.
 		itr = 0;
 		unsigned int flat_hits = 0;
 		for (itr = 0; itr < maxitr; ++itr) {
-            
+
 			// adjust intercept (this modifies sum_best_xbeta)
 			adjust_intercept( itr, os );
-            
+
 			// find rule and descend
 			descend_one_step( itr, os, sum_best_beta_opt );
-            
+
 			convergence_rate = calc_convergence_rate(sum_best_xbeta, sum_best_beta_opt );
-            
+
 			//sum_best_beta_opt is the optimum just found using line search.  Save it.
 			//(Even if we have converged.)
 			sum_best_xbeta.assign(sum_best_beta_opt.begin(), sum_best_beta_opt.end());
-            
+
 			if (convergence_rate < convergence_threshold) {
 				flat_hits++;
 				if ( flat_hits > 4 ) {
@@ -2590,19 +2580,19 @@ public:
 					if (verbosity >= 1) {
 						Rcout << "\nFlatness found on iteration # " << itr + 1 << endl;
 					}
-                    
+
 				}
 			}
-            
-            
+
+
 			//gettimeofday(&t, NULL);
 			//Rcout << "\ntime 1 boosting iter: " << t.tv_sec - t_start.tv_sec << " seconds; " << (t.tv_sec - t_start.tv_sec) / 60.0 << " minutes ";
 		} //end optimization iterations.
-        
+
 		if ( itr == maxitr && verbosity > 0 ) {
 			Rcout << "\nFinished iterations due to hitting max iteration cut-off of " << maxitr << ".  May not have converged.\n";
 		}
-        
+
 		gettimeofday(&t, NULL);
 		if (verbosity >= 1) {
 			features_it = features_cache.end();
@@ -2610,70 +2600,70 @@ public:
 			Rcout << "\nend loss: " << loss;
 			Rcout << "\ntotal time: " << t.tv_sec - t_origin.tv_sec << " seconds; " << (t.tv_sec - t_origin.tv_sec) / 60.0 << " minutes\n ";
 		}
-        
+
         // for debugging, we can print small corpus entirely for diagnostic purposes.
 		if ( corpus.size() < 20 && (verbosity > 0 )) {
 			Rcout << "Individual document estimates:" << endl;
             print_estimates( sum_best_beta_opt, 0 );
 		}
-        
+
 		if ( verbosity > 6 ) {
 			Rcout << "Writing out final model:" << endl;
 			Rcout << "------------------------" << endl;
 			print_full_model( final_model_cache, itr, maxitr, Rcout );
 			Rcout << "------------------------" << endl;
 		}
-        
+
 		if ( write_to_file ) {
 			print_full_model( final_model_cache, itr, maxitr, final_os );
 		}
-        
+
 		if ( corpus.size() < 20 && verbosity > 4 ) {
 			Rcout << "Writing out final model:" << endl;
 			print_estimates( sum_best_xbeta, 1 );
 		}
-        
+
 		return true;
 	} //end run().
-    
-    
-    
+
+
+
 	NumericVector find_C ( unsigned int num_scrambles ) {
         Rcpp::RNGScope scope;         		// needed when RNGs are drawn
-       
+
         if ( verbosity > 0 ) {
         	print_settings( 0 );
         }
-        
+
         NumericVector res( num_scrambles + 1 );
-        
+
 		unsigned int l = corpus.size();
-        
+
         Rcpp::NumericVector swps;
-        
+
 		sum_best_xbeta.resize(l);
 
 		if ( verbosity > 1 ) {
             Rcout << "Looking for C to get empty model: " << num_scrambles << " iterations with first not scrambled"  << endl;
         }
         int n = y.size();
-       
+
         for ( unsigned int sc_itr = 0; sc_itr < num_scrambles + 1; sc_itr++ ) {
             if ( verbosity > 1 ) {
                 Rcout << "\nBeginning find_C iteration\n";
                 Rcout.flush();
             }
-            
+
             tau         = 0.0;
             total_nodes = 0;
-            
+
             // All beta coeficients are zero when starting.
             sum_squared_betas = 0;
             sum_abs_betas = 0;
-            
+
             features_cache.clear();
-            
-            
+
+
             if ( sc_itr > 0 ) {
                 swps = Rcpp::runif(n);
                 for ( int i = n - 1; i > 0; i-- ) {
@@ -2681,12 +2671,12 @@ public:
                 }
             }
 
-            
+
             // The starting point is beta = (0, 0, 0, 0, .....).
             std::fill(sum_best_xbeta.begin(), sum_best_xbeta.end(), 0.0);
             exp_fraction.resize (l);
             std::fill (exp_fraction.begin(), exp_fraction.end(), 1.0 /2.0);
-            
+
             // intercept is a rule with a weight of 1 on all the documents.
             int_rule.ngram = "*intercept*";
             int_rule.doc_support.resize(l);
@@ -2699,10 +2689,10 @@ public:
             int_rule.total_support = l;
             int_rule.total_docs = l;
             int_rule.Z = 1;
-            
+
             Rcout.setf(std::ios::fixed,std::ios::floatfield);
             Rcout.precision(8);
-            
+
              // adjust intercept (this modifies sum_best_xbeta)
             LONG_DOUBLE int_step = intercept_search( &sum_best_xbeta );
             if ( verbosity > 4 ) {
@@ -2711,14 +2701,14 @@ public:
             if ( verbosity > 1 ) {
                 Rcout << "Finding best ngram\n";
             }
-            
+
             // find best rule
             find_best_ngram();
-            
+
             double needed_C = 0;
             if ( rule != NULL ) {
                 needed_C = rule->gradient;
-                
+
                 if (verbosity >= 1) {
                     Rcout <<  "\nItr " << sc_itr << " results: size model: " << features_cache.size () << "    rewrite/prune/total: "
                     << rewritten << "/" << pruned << "/" << total << " "
@@ -2733,24 +2723,24 @@ public:
                     Rcout.flush();
                 }
             }
-            
+
             res[sc_itr] = std::abs( needed_C );
         }
-        
+
 		gettimeofday(&t, NULL);
 		if (verbosity >= 1) {
 			Rcout << "\ntotal time: " << t.tv_sec - t_origin.tv_sec << " seconds; " << (t.tv_sec - t_origin.tv_sec) / 60.0 << " minutes\n ";
 		}
-                
+
 		return res;
 	} //end find_C().
-    
+
 };
 
 
 
 SEXP textreg(Rcpp::XPtr<SeqLearner> seql_learner, Rcpp::List rparam) {
-    
+
     // Step 1: read parameters for how to run ngram from R
     int maxiter = 100;
     bool find_C = false;
@@ -2760,7 +2750,7 @@ SEXP textreg(Rcpp::XPtr<SeqLearner> seql_learner, Rcpp::List rparam) {
         Rcout << "beginning c++ ngram function call\n";
         Rcout.flush();
     }
-    
+
     // get parameters
     try {
         seql_learner->C = Rcpp::as<double>(rparam["C"]);
@@ -2782,7 +2772,7 @@ SEXP textreg(Rcpp::XPtr<SeqLearner> seql_learner, Rcpp::List rparam) {
         seql_learner->convergence_threshold = Rcpp::as<double>(rparam["convergence.threshold"]);
         seql_learner->verbosity = Rcpp::as<double>(rparam["verbosity"]);
         seql_learner->step_verbosity = Rcpp::as<double>(rparam["step.verbosity"]);
-        
+
         double newLp = Rcpp::as<double>(rparam["Lq"]);
         if ( seql_learner->has_unigram_cache() && seql_learner->Lp != newLp ) {
             if ( seql_learner->verbosity > 0 ) {
@@ -2801,14 +2791,14 @@ SEXP textreg(Rcpp::XPtr<SeqLearner> seql_learner, Rcpp::List rparam) {
 
         find_C       = Rcpp::as<int>(rparam["findC"]);
         find_C_iter  = Rcpp::as<int>(rparam["findCIter"]);
-        
+
     } catch (std::exception &ex) {		// or use END_RCPP macro
         Rprintf("Caught error\n" );
         Rcerr << "error diagnostic '" << ex.what() << "'" << endl;
         //Rcerr << ex << endl;
-        
+
         forward_exception_to_r( ex );
-    } catch(...) { 
+    } catch(...) {
     	::Rf_error( "c++ exception (unknown reason)" );
     }
 
@@ -2817,7 +2807,7 @@ SEXP textreg(Rcpp::XPtr<SeqLearner> seql_learner, Rcpp::List rparam) {
         Rcout.flush();
     }
     // Rprintf("Checking Labeling Vector\n" );
-	
+
     // Step 3: Find all unigrams if not present.
     if ( !seql_learner->has_unigram_cache() ) {
         seql_learner->make_unigram_list();
@@ -2827,11 +2817,11 @@ SEXP textreg(Rcpp::XPtr<SeqLearner> seql_learner, Rcpp::List rparam) {
             Rcout << "No need to build unigram list as it is inherited from previous call" << endl;
         }
     }
-    
+
     if ( !find_C ) {
         try {
             seql_learner->run( NULL, maxiter );
-            
+
             if ( seql_learner->verbosity > 1 ) {
                 Rcout << "assembling results to return" << endl;
                 Rcout.flush();
@@ -2851,13 +2841,13 @@ SEXP textreg(Rcpp::XPtr<SeqLearner> seql_learner, Rcpp::List rparam) {
                 Rcout << "going to return" << endl;
                 Rcout.flush();
             }
-            
+
             return Rcpp::List::create(_[ "model" ] = df,
                                   _[ "rules" ] = ruleset,
                                   _[ "notes" ] = notes,
                                   _[ "labeling" ] =  seql_learner->y,
-                                  // TODO: Re-enable.
-                                  //_[ "banlist" ] = bannedV,
+ //                                 _[ "banlist" ] = bannedV,  // This was commented out at some point?  Need to bring back somehow
+ //TODO: Add a get ban list to seql_learner
                                   _[ "path"] = search_path );
 
 
@@ -2873,22 +2863,22 @@ SEXP textreg(Rcpp::XPtr<SeqLearner> seql_learner, Rcpp::List rparam) {
         }
         try {
             NumericVector res = seql_learner->find_C( find_C_iter );
-            
+
             return res;
-            
+
         } catch( std::exception &ex ) {		// or use END_RCPP macro
             forward_exception_to_r( ex );
         } catch(...) {
             ::Rf_error( "c++ exception in find C block (unknown reason)" );
         }
-        
+
     }
     return R_NilValue;
 }
 
 
-Rcpp::XPtr<SeqLearner> build_corpus(Rcpp::StringVector corpusV, Rcpp::NumericVector labelV, 
-									Rcpp::StringVector bannedV, Rcpp::List rparam) 
+Rcpp::XPtr<SeqLearner> build_corpus(Rcpp::StringVector corpusV, Rcpp::NumericVector labelV,
+									Rcpp::StringVector bannedV, Rcpp::List rparam)
 {
     // Rcpp::StringVector bannedV = Rcpp::StringVector();
 	SeqLearner *seql_learner = new SeqLearner();
@@ -2899,7 +2889,7 @@ Rcpp::XPtr<SeqLearner> build_corpus(Rcpp::StringVector corpusV, Rcpp::NumericVec
         Rcout << "beginning c++ ngram function call\n";
         Rcout.flush();
     }
-    
+
 
     // get parameters
     try {
@@ -2913,9 +2903,9 @@ Rcpp::XPtr<SeqLearner> build_corpus(Rcpp::StringVector corpusV, Rcpp::NumericVec
         Rprintf("Caught error\n" );
         Rcerr << "error diagnostic '" << ex.what() << "'" << endl;
         //Rcerr << ex << endl;
-        
+
         forward_exception_to_r( ex );
-    } catch(...) { 
+    } catch(...) {
     	::Rf_error( "c++ exception (unknown reason)" );
     }
 
@@ -2967,7 +2957,7 @@ Rcpp::XPtr<SeqLearner> build_corpus(Rcpp::StringVector corpusV, Rcpp::NumericVec
     } catch(...) {
     	::Rf_error( "c++ exception (unknown reason)" );
     }
-	
+
 	// return the external pointer to the R side
 	return Rcpp::XPtr<SeqLearner>( seql_learner, true );
 }
@@ -2979,22 +2969,22 @@ Rcpp::XPtr<SeqLearner> update_banned(Rcpp::XPtr<SeqLearner> seql_learner, Rcpp::
         Rcout << "Updating ban list\n";
         Rcout.flush();
     }
-    
+
     try {
         seql_learner->banned_words.clear();
-        
+
         // add banned words
         for ( int i = 0; i < bannedV.size(); i++ ) {
             std::string stt = std::string(bannedV[i]);
             seql_learner->add_banned_word( stt );
         }
-        
+
     } catch( std::exception &ex ) {		// or use END_RCPP macro
         forward_exception_to_r( ex );
     } catch(...) {
         ::Rf_error( "c++ exception (unknown reason)" );
     }
-    
+
     // return the external pointer to the R side
     return Rcpp::XPtr<SeqLearner>( seql_learner, true );
 }

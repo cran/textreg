@@ -41,3 +41,4 @@ sample.fragments( "bathtub", meta(bathtub)$meth.chl, bathtub )
 Other sample.fragments: \code{\link{is.fragment.sample}},
   \code{\link{print.fragment.sample}}
 }
+\concept{sample.fragments}

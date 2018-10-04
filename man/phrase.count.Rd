@@ -23,3 +23,4 @@ phrase.count( "bathtub", bathtub )
 Other textregCounting: \code{\link{make.count.table}},
   \code{\link{make.phrase.matrix}}
 }
+\concept{textregCounting}

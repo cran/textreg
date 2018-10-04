@@ -10,15 +10,22 @@ context( "making word lists and displays of word lists" )
 
 test_that( "little list tables", {
   
-        df1 = data.frame( word=c("*intercept*","wordie", "wordieSmall", "wordieBig"), weight=c(1, 2, 0.5, 2.5) )
-        df2 = data.frame( word=c("*intercept*", "piggie"), weight=c(1,2) )
-        make.list.table( list( A= df1, B=df1, C=df2 ) )
+        df1 = data.frame( word=c("*intercept*","wordie", "wordieSmall", "wordieBig"),
+                          weight=c(1, 2, 0.5, 2.5) )
+        df2 = data.frame( word=c("*intercept*", "piggie"), 
+                          weight=c(1,2) )
+        tbl = make.list.table( list( A= df1, B=df1, C=df2 ) )
+        expect_equal( class( tbl ), "matrix" )
+        expect_equal( as.numeric( tbl[,1] ), c(4,3,1, NA) )
+        expect_equal( as.numeric( tbl[,3] ), c(NA, NA, NA, 2) )
+        expect_equal( rownames(tbl), c("wordieBig", "wordie", "wordieSmall","piggie"))
+        
         
         df1 = data.frame( word=c("*intercept*","wordie", "wordie2"), weight=c(1,2,3) )
         df2 = data.frame( word=c("*intercept*"), weight=c(1) )
         
-        make.list.table( list( A= df1, B=df1, C=df1 ) )
-        
+        tbl = make.list.table( list( A= df1, B=df1, C=df1 ) )
+        expect_equal( nrow( tbl ), 2 )
         
         make.list.table( list( A= df1, B=df2, C=df2 ) )
         
@@ -29,9 +36,11 @@ test_that( "little list tables", {
         df1 = data.frame( word=c("*intercept*","wordie"), weight=c(1,2) )
         df2 = data.frame( word=c("*intercept*"), weight=c(1) )
         
-        make.list.table( list( A= df1, B=df1, C=df1 ) )
+        tbl = make.list.table( list( A= df1, B=df1, C=df1 ) )
+        expect_equal( nrow(tbl), 1 )
         
-        make.list.table( list( A= df1, B=df1, C=df2 ) )
+        tbl = make.list.table( list( A= df1, B=df1, C=df2 ) )
+        expect_equal( nrow(tbl), 1 )
         
     
 })
@@ -141,11 +150,12 @@ test_that("plotting options don't crash", {
                       dates = c( "A", "B", "C", "D", "E" ) )
     
     # Adding vertical lines and no x-axis
-    list.table.chart( tbl, color.ramp=my.ramp, color.breaks=my.break, xaxt="n" )
+    plt = list.table.chart( tbl, color.ramp=my.ramp, color.breaks=my.break, xaxt="n" )
     abline( v=1, col="red", lwd=5 )    
     abline( v=c(2.5,3.5), col="red", lwd=5 )    
     
-    
+    expect_equal( nrow(plt), nrow(tbl))
+    expect_true( ncol(plt) <= ncol(tbl))
 } )
 
 

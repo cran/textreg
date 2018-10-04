@@ -4,8 +4,8 @@
 \alias{find.CV.C}
 \title{K-fold cross-validation to determine optimal tuning parameter}
 \usage{
-find.CV.C(corpus, labeling, banned, K = 5, length.out = 10, max_C = NULL,
-  verbose = FALSE, ...)
+find.CV.C(corpus, labeling, banned, K = 5, length.out = 10,
+  max_C = NULL, verbose = FALSE, ...)
 }
 \arguments{
 \item{corpus}{The text}

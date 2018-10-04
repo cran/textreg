@@ -94,7 +94,7 @@ find.CV.C <-function( corpus, labeling, banned, K=5, length.out=10, max_C=NULL, 
       means[i] <- sum(loss)/length(corpus)
       std_err[i] <- sd(loss/foldsize)/sqrt(length(loss))
       if ( verbose ) {
-      	print(C)
+      	cat( "Iteration C =", C, "\n" )
       }
     }
     df=data.frame(Cs,train.err=in.means,test.err=means,std_err)

@@ -17,3 +17,4 @@ Is object a fragment.sample object?
 Other sample.fragments: \code{\link{print.fragment.sample}},
   \code{\link{sample.fragments}}
 }
+\concept{sample.fragments}

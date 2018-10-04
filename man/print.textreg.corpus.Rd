@@ -17,3 +17,4 @@ Pretty print textreg corpus object
 \seealso{
 Other textreg.corpus: \code{\link{is.textreg.corpus}}
 }
+\concept{textreg.corpus}

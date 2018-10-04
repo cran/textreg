@@ -15,7 +15,7 @@
 #'
 #' The n-gram package is documented, but it is research code, meaning gaps and errors are possible; the author would appreciate notification of anything that is out of order.
 #'
-#' The primary method in this package is the regression call textreg(). This method takes a corpus and a labeling vector and returns a textreg.result
+#' The primary method in this package is the regression call `textreg()`. This method takes a corpus and a labeling vector and returns a textreg.result
 #' object that contains the final regression result along with diagnostic information that can be of use.  
 #'
 #' Start by reading the ``bathtub'' vignette, which walks through most of the functionality of this package.
@@ -24,7 +24,7 @@
 #' Also thanks to Kevin Wu, who wrote earlier versions of the stemming and cross-validation code.  And Georgiana Ifrim, of course, for the earlier
 #' version of the C++ code.
 #'
-#' @useDynLib textreg
+#' @useDynLib textreg, .registration=TRUE
 #' @references Ifrim, G., Bakir, G., & Weikum, G. (2008). Fast logistic regression for text categorization with variable-length n-grams. 14th ACM SIGKDD International Conference on Knowledge Discovery and Data Mining, 354-362.
 #' @references Ifrim, G., & Wiuf, C. (2011). Bounded coordinate-descent for biological sequence classification in high dimensional predictor space. 17th ACM SIGKDD International Conference on Knowledge Discovery and Data Mining, 708-716.
 #' @references Jia, J., Miratrix, L., Yu, B., Gawalt, B., Ghaoui, El, L., Barnesmoore, L., & Clavier, S. (2014). Concise Comparative Summaries (CCS) of Large Text Corpora with a Human Experiment. The Annals of Applied Statistics, 8(1), 499-529.
@@ -34,6 +34,7 @@
 #' @docType package
 #' @name textreg-package
 NULL
+
 
 
 

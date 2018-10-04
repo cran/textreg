@@ -39,3 +39,4 @@ grab.fragments
 Other textregCounting: \code{\link{make.phrase.matrix}},
   \code{\link{phrase.count}}
 }
+\concept{textregCounting}

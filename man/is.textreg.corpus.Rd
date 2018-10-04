@@ -16,3 +16,4 @@ Is object a textreg.corpus object?
 \seealso{
 Other textreg.corpus: \code{\link{print.textreg.corpus}}
 }
+\concept{textreg.corpus}

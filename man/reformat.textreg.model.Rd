@@ -21,3 +21,4 @@ Calculate some useful statistics (percents, etc) and return as dataframe.
 Other textreg.result: \code{\link{is.textreg.result}},
   \code{\link{phrases}}, \code{\link{print.textreg.result}}
 }
+\concept{textreg.result}

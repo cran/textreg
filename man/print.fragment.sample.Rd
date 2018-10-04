@@ -18,3 +18,4 @@ Pretty print results of phrase sampling object.
 Other sample.fragments: \code{\link{is.fragment.sample}},
   \code{\link{sample.fragments}}
 }
+\concept{sample.fragments}

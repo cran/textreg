@@ -24,3 +24,4 @@ Other Phrase Vizualization: \code{\link{cluster.phrases}},
   \code{\link{make.appearance.matrix}},
   \code{\link{make.phrase.correlation.chart}}
 }
+\concept{Phrase Vizualization}

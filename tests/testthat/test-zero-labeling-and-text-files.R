@@ -13,10 +13,11 @@ context( "Zero Labeling and Text Files " )
 test_that( "reading from file works", {
 	
 	# should use system.file( "data/text_file.txt", package="textreg" )
-	
 	write( "A\nA A\nA B A\nA C A\nB\nC\nA", file="/tmp/testfile.txt" )
 	lab = c( 1, 1, 1, 0, 0, -1, 1 )	
 	res3 = textreg( "/tmp/testfile.txt", lab, verbosity=0, positive.only=TRUE )
+	expect_equal( length( res3$labeling ), 5 )
+	expect_equal( length( res3$rules), 2 )
 } )
 
 

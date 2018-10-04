@@ -21,7 +21,7 @@ You can use a prior build.corpus command before textreg to mitigate this cost, b
 
 The n-gram package is documented, but it is research code, meaning gaps and errors are possible; the author would appreciate notification of anything that is out of order.
 
-The primary method in this package is the regression call textreg(). This method takes a corpus and a labeling vector and returns a textreg.result
+The primary method in this package is the regression call `textreg()`. This method takes a corpus and a labeling vector and returns a textreg.result
 object that contains the final regression result along with diagnostic information that can be of use.
 
 Start by reading the ``bathtub'' vignette, which walks through most of the functionality of this package.

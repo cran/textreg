@@ -38,3 +38,4 @@ Other Phrase Vizualization: \code{\link{make.appearance.matrix}},
   \code{\link{make.phrase.correlation.chart}},
   \code{\link{make.similarity.matrix}}
 }
+\concept{Phrase Vizualization}
